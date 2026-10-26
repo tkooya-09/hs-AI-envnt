@@ -7,7 +7,7 @@ import { Users, Crown, MapPin, Clock, BarChart3, Mic2, FileText, Bell, X, Lock, 
 // =====================================================================
 
 const STORE_KEY = 'mars-vip-platform-v2';
-const APP_VERSION = '3.3.0';
+const APP_VERSION = '3.3.1';
 
 // ---------- 초기 자료 ----------
 const DEFAULT_EVENT = {
@@ -1085,6 +1085,7 @@ function ManageView({ applyProtocol, onQuickAdd, attendees, updateAttendee, addA
   const [paste, setPaste] = useState('');
   const [q, setQ] = useState('');
   const [edit, setEdit] = useState(null);
+  const [more, setMore] = useState(false);
   const [sort, setSort] = useState(() => { try { return localStorage.getItem('mars-manage-sort') || 'rank'; } catch { return 'rank'; } });
   useEffect(() => { try { localStorage.setItem('mars-manage-sort', sort); } catch {} }, [sort]);
   const ST_ORDER = { '미도착': 0, '도착': 1, '착석': 2, '불참': 3, '퇴장': 4 };
@@ -1115,23 +1116,26 @@ function ManageView({ applyProtocol, onQuickAdd, attendees, updateAttendee, addA
   const reseat = async () => { if (await askUser('현재 목록 순서대로 좌석번호(A-01~)를 다시 매깁니다. 계속할까요?')) patch(s => ({ attendees: s.attendees.map((a, i) => ({ ...a, seat: `A-${String(i + 1).padStart(2, '0')}` })) })); };
 
   return (
-    <div className="card p-3">
-      <div className="flex flex-wrap items-center gap-2 mb-3">
+    <div className="card p-2 sm:p-3">
+      <div className="flex flex-wrap items-center gap-1.5 mb-2">
         <h2 className="section-title"><Users className="w-4 h-4" />내빈 관리 <span className="text-xs font-normal text-slate-500">{attendees.length}명</span></h2>
         <div className="relative flex-1 min-w-[140px] max-w-xs"><Search className="w-3.5 h-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" /><input value={q} onChange={e => setQ(e.target.value)} placeholder="이름·소속·좌석 검색" className="w-full border border-slate-300 rounded-md pl-7 pr-2 py-1.5 text-sm" /></div>
         <div className="w-full md:w-auto md:ml-auto flex flex-wrap gap-1">
           <button onClick={onQuickAdd} className="btn btn-dark"><Plus className="w-3 h-3" />1명 추가</button>
-          <button onClick={() => setShowPaste(v => !v)} className="btn btn-outline"><Upload className="w-3 h-3" />엑셀 붙여넣기</button>
-          <button onClick={exportCsv} className="btn btn-outline"><Download className="w-3 h-3" />엑셀(CSV) 저장</button>
           <button onClick={doProtocol} className="btn btn-primary">의전순 적용</button>
-          <button onClick={reseat} className="btn btn-outline">좌석 재부여</button>
-          <button onClick={resetStatus} className="text-xs px-2 py-1.5 rounded border border-rose-300 text-rose-600 flex items-center gap-1"><RotateCcw className="w-3 h-3" />상태 초기화</button>
+          <button onClick={() => setMore(v => !v)} className="btn btn-outline md:hidden">{more ? '접기 ▴' : '더보기 ▾'}</button>
+          <div className={`${more ? 'flex' : 'hidden'} md:flex flex-wrap gap-1 w-full md:w-auto`}>
+            <button onClick={() => setShowPaste(v => !v)} className="btn btn-outline"><Upload className="w-3 h-3" />엑셀 붙여넣기</button>
+            <button onClick={exportCsv} className="btn btn-outline"><Download className="w-3 h-3" />엑셀(CSV) 저장</button>
+            <button onClick={reseat} className="btn btn-outline">좌석 재부여</button>
+            <button onClick={resetStatus} className="text-xs px-2 py-1.5 rounded border border-rose-300 text-rose-600 flex items-center gap-1"><RotateCcw className="w-3 h-3" />상태 초기화</button>
+          </div>
         </div>
       </div>
-      <div className="flex items-center gap-1 mb-2 overflow-x-auto text-xs">
+      <div className="flex items-center gap-1 mb-1.5 overflow-x-auto text-xs">
         <span className="text-slate-500 shrink-0">정렬</span>
         {[['rank', '의전순'], ['status', '미도착 먼저'], ['seat', '좌석순'], ['name', '가나다순'], ['reg', '등록순']].map(([k, l]) => (
-          <button key={k} onClick={() => setSort(k)} className={`shrink-0 px-2.5 py-1 rounded-full border font-semibold ${sort === k ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-300'}`}>{l}</button>
+          <button key={k} onClick={() => setSort(k)} className={`shrink-0 px-2 py-0.5 rounded-full border font-semibold ${sort === k ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-300'}`}>{l}</button>
         ))}
       </div>
       {showPaste && (
@@ -1141,28 +1145,24 @@ function ManageView({ applyProtocol, onQuickAdd, attendees, updateAttendee, addA
           <div className="flex gap-1 mt-1"><button onClick={importPaste} className="text-xs px-3 py-1 rounded bg-blue-600 text-white">추가</button><button onClick={() => setShowPaste(false)} className="text-xs px-3 py-1 rounded border">취소</button></div>
         </div>
       )}
-      {/* 핸드폰: 카드 목록 */}
-      <div className="md:hidden space-y-2">
+      {/* 핸드폰: 2줄 카드 (이름 줄 + 단추 줄) */}
+      <div className="md:hidden space-y-1">
         {shown.map(a => (
-          <div key={a.id} className={`rounded-lg border border-l-4 px-3 py-2 ${a.status === '착석' ? 'border-l-emerald-500 bg-emerald-50/50' : a.status === '도착' ? 'border-l-amber-500 bg-amber-50/50' : a.status === '불참' ? 'border-l-rose-400' : 'border-l-slate-300'} border-slate-200`}>
-            <div className="flex items-start gap-2">
-              <div className="min-w-0 flex-1">
-                <div className="flex items-baseline gap-1.5 flex-wrap"><span className="text-[11px] font-bold text-indigo-600 tabular-nums">의전 {rankOf(a) === 999 ? '-' : rankOf(a)}</span><span className="text-lg font-bold">{a.name}</span><span className="text-sm text-slate-700">{a.position}</span></div>
-                <div className="text-xs text-slate-500 truncate">{a.category} · {a.organization} · <span className="font-mono">{a.seat || '좌석 없음'}</span></div>
-              </div>
-              <StatusChip status={a.status} />
-              <button onClick={() => setEdit(a.id)} className="p-1.5 rounded-md border border-slate-300 text-slate-600"><Pencil className="w-3.5 h-3.5" /></button>
+          <div key={a.id} className={`rounded-md border border-l-4 pl-2 pr-1.5 py-1 ${a.status === '착석' ? 'border-l-emerald-500 bg-emerald-50/50' : a.status === '도착' ? 'border-l-amber-500 bg-amber-50/50' : a.status === '불참' ? 'border-l-rose-400' : 'border-l-slate-300'} border-slate-200`}>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="shrink-0 text-[11px] font-bold text-indigo-600 tabular-nums w-5">{rankOf(a) === 999 ? '-' : rankOf(a)}</span>
+              <span className="shrink-0 text-[16px] font-bold leading-tight">{a.name}</span>
+              <span className="shrink-0 text-[12px] text-slate-700">{a.position}</span>
+              <span className="min-w-0 truncate text-[11px] text-slate-400">{a.organization} · {a.seat || '-'}</span>
+              <span className="ml-auto shrink-0"><StatusChip status={a.status} small /></span>
+              <button onClick={() => setEdit(a.id)} className="shrink-0 p-1 text-slate-400"><Pencil className="w-3.5 h-3.5" /></button>
             </div>
-            <div className="grid grid-cols-4 gap-1.5 mt-2">
+            <div className="flex items-center gap-1 mt-1">
               {[['도착', 'bg-amber-500 border-amber-500 text-white'], ['착석', 'bg-emerald-600 border-emerald-600 text-white'], ['불참', 'bg-white border-rose-300 text-rose-600'], ['미도착', 'bg-white border-slate-300 text-slate-500']].map(([st, cls]) => (
-                <button key={st} onClick={() => setStatus(a.id, st)} className={`rounded-md border py-2 text-sm font-bold ${a.status === st ? 'ring-2 ring-offset-1 ring-slate-800' : ''} ${cls}`}>{st === '미도착' ? '초기화' : st}</button>
+                <button key={st} onClick={() => setStatus(a.id, st)} className={`flex-1 rounded border py-1 text-[12px] font-bold ${a.status === st ? 'ring-2 ring-slate-800' : ''} ${cls}`}>{st === '미도착' ? '초기화' : st}</button>
               ))}
-            </div>
-            <div className="flex items-center gap-2 mt-2 text-xs">
-              <button onClick={() => toggleIntro(a.id, !a.intro)} className={`px-2 py-1 rounded-md border font-semibold ${a.intro ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-400 border-slate-300'}`}>소개 {a.intro ? '○' : '×'}</button>
-              <button onClick={() => toggleSpeech(a.id, !a.speech)} className={`px-2 py-1 rounded-md border font-semibold ${a.speech ? 'bg-violet-600 text-white border-violet-600' : 'bg-white text-slate-400 border-slate-300'}`}>인사말씀 {a.speech ? '○' : '×'}</button>
-              {a.speech && <select value={a.speechType} onChange={e => updateAttendee(a.id, { speechType: e.target.value })} className="border border-violet-300 text-violet-700 rounded px-1 py-1">{SPEECH_TYPES.map(t => <option key={t}>{t}</option>)}</select>}
-              {(a.seatedTime || a.arrivalTime) && <span className="ml-auto text-slate-400 font-mono">{a.seatedTime || a.arrivalTime}</span>}
+              <button onClick={() => toggleIntro(a.id, !a.intro)} className={`shrink-0 px-1.5 py-1 rounded border text-[11px] font-bold ${a.intro ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-400 border-slate-300'}`}>소개{a.intro ? '○' : '×'}</button>
+              <button onClick={() => toggleSpeech(a.id, !a.speech)} className={`shrink-0 px-1.5 py-1 rounded border text-[11px] font-bold ${a.speech ? 'bg-violet-600 text-white border-violet-600' : 'bg-white text-slate-400 border-slate-300'}`}>{a.speech ? a.speechType : '말씀×'}</button>
             </div>
           </div>
         ))}
