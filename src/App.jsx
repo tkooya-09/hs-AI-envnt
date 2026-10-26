@@ -7,7 +7,7 @@ import { Users, Crown, MapPin, Clock, BarChart3, Mic2, FileText, Bell, X, Lock, 
 // =====================================================================
 
 const STORE_KEY = 'mars-vip-platform-v2';
-const APP_VERSION = '3.4.0';
+const APP_VERSION = '3.3.0';
 
 // ---------- 초기 자료 ----------
 const DEFAULT_EVENT = {
@@ -405,11 +405,11 @@ export default function App() {
       {/* 머리글 */}
       <header className="print:hidden sticky top-0 z-40 shadow-md">
         <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white">
-          <div className="max-w-7xl mx-auto px-3 py-1.5 sm:py-2 flex items-center gap-3">
+          <div className="max-w-7xl mx-auto px-3 py-2 flex items-center gap-3">
             <div className="hidden sm:flex w-9 h-9 rounded-lg bg-amber-400 text-slate-900 items-center justify-center shrink-0 shadow"><Crown className="w-5 h-5" /></div>
             <div className="min-w-0">
               <div className="font-bold text-sm md:text-base truncate tracking-tight"><span className="hidden sm:inline">{event.name} </span><span className="sm:hidden">MARS 2026 </span><span className="text-amber-300 font-semibold">내빈 운영</span></div>
-              <div className="hidden sm:block text-[11px] text-slate-300 truncate">{event.date} · {event.place} · {event.host}</div>
+              <div className="text-[11px] text-slate-300 truncate">{event.date} · {event.place} · {event.host}</div>
             </div>
             <div className="ml-auto flex items-center gap-1.5 sm:gap-2 shrink-0">
               {sync.on && <span title={sync.err || `마지막 동기화 ${sync.at || '-'}`} className={`hidden md:inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded-full border ${sync.status === '연결됨' ? 'border-emerald-400/50 text-emerald-200 bg-emerald-500/10' : 'border-amber-400/50 text-amber-200 bg-amber-500/10'}`}><span className={`w-1.5 h-1.5 rounded-full ${sync.status === '연결됨' ? 'bg-emerald-400' : 'bg-amber-400 animate-pulse'}`} />공유 {sync.status}{sync.at && ` ${sync.at}`}</span>}
@@ -428,7 +428,7 @@ export default function App() {
           <div className="max-w-7xl mx-auto px-3 flex gap-1 overflow-x-auto">
             {tabs.map(t => (
               <button key={t.id} onClick={() => setView(t.id)}
-                className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-2 sm:py-2.5 text-xs md:text-sm whitespace-nowrap border-b-2 -mb-px transition-colors ${view === t.id ? 'border-indigo-600 text-indigo-700 font-bold' : 'border-transparent text-slate-500 hover:text-slate-900'}`}>
+                className={`flex items-center gap-1.5 px-3 py-2.5 text-xs md:text-sm whitespace-nowrap border-b-2 -mb-px transition-colors ${view === t.id ? 'border-indigo-600 text-indigo-700 font-bold' : 'border-transparent text-slate-500 hover:text-slate-900'}`}>
                 <t.icon className="w-3.5 h-3.5" />{t.label}
               </button>
             ))}
@@ -436,9 +436,9 @@ export default function App() {
         </nav>
       </header>
 
-      <main className="print:hidden max-w-7xl mx-auto p-2 sm:p-3 md:p-4">
+      <main className="print:hidden max-w-7xl mx-auto p-3 md:p-4">
         {!isAdmin && ['board', 'seat', 'speech'].includes(view) && (
-          <div className="mb-2 flex items-center gap-2 rounded-lg border border-amber-400 bg-amber-50 px-2 py-1 text-sm">
+          <div className="mb-3 flex items-center gap-3 rounded-lg border-2 border-amber-400 bg-amber-50 px-3 py-2 text-sm">
             <Lock className="w-4 h-4 text-amber-600 shrink-0" />
             <span className="text-amber-900 text-xs sm:text-sm"><b>조회 모드</b>입니다. 체크·자리 변경은 관리자로 입장하세요.</span>
             <button onClick={() => setLoginOpen(true)} className="btn bg-amber-500 text-white hover:bg-amber-600 ml-auto shrink-0"><LogIn className="w-3.5 h-3.5" />관리자 입장</button>
@@ -533,7 +533,6 @@ function BoardView({ attendees, stats, program, isAdmin, setStatus, toggleSpeech
   const [filter, setFilter] = useState('전체');
   const [big, setBig] = useState(() => localStorage.getItem('mars-big') === '1');
   const [sheet, setSheet] = useState(null);
-  const [showAll, setShowAll] = useState(false);
   useEffect(() => { localStorage.setItem('mars-big', big ? '1' : '0'); }, [big]);
   const [clock, setClock] = useState(nowHM());
   useEffect(() => { const t = setInterval(() => setClock(nowHM()), 15000); return () => clearInterval(t); }, []);
@@ -544,23 +543,23 @@ function BoardView({ attendees, stats, program, isAdmin, setStatus, toggleSpeech
   const current = program.findIndex((p, i) => { const n = program[i + 1]; return clock >= p.time && (!n || clock < n.time); });
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       {/* 핵심 지표 */}
-      <div className="grid grid-cols-6 gap-1 sm:gap-2">
-        <KPI label="초청" value={stats.total} />
-        <KPI label="참석" value={stats.present} sub={`${stats.rate}%`} tone="emerald" />
-        <KPI label="착석" value={stats.seated} tone="blue" />
+      <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
+        <KPI label="초청 내빈" value={stats.total} />
+        <KPI label="참석(도착+착석)" value={stats.present} sub={`${stats.rate}%`} tone="emerald" />
+        <KPI label="착석 완료" value={stats.seated} tone="blue" />
         <KPI label="미도착" value={stats.notArrived} tone="amber" />
-        <KPI label="불참" value={stats.absent + stats.left} tone="rose" />
-        <KPI label="말씀" value={`${stats.speakersPresent}/${stats.speakers}`} tone="violet" />
+        <KPI label="불참·퇴장" value={stats.absent + stats.left} tone="rose" />
+        <KPI label="인사말씀 참석" value={`${stats.speakersPresent}/${stats.speakers}`} tone="violet" />
       </div>
 
       {/* 도착 알림 (소형 칩) */}
       {present.length > 0 && (
-        <div className="bg-gradient-to-r from-rose-600 to-rose-700 rounded-lg px-2 py-1.5 text-white shadow">
+        <div className="bg-gradient-to-r from-rose-600 to-rose-700 rounded-lg px-3 py-2 text-white shadow">
           <div className="flex flex-wrap items-center gap-1.5">
             <div className="flex items-center gap-1.5 mr-1 shrink-0"><Bell className="w-3.5 h-3.5 animate-pulse" /><span className="text-xs font-bold">도착 내빈</span><span className="text-[10px] bg-white/25 px-1.5 py-0.5 rounded">{present.length}/{stats.total}</span></div>
-            {(showAll ? present : present.slice(0, 6)).map(a => (
+            {present.map(a => (
               <span key={a.id} title={`${honor(a)} · ${a.status}`} className="inline-flex items-center gap-1 bg-white/15 border border-white/20 rounded px-1.5 py-0.5 text-[11px] leading-4 whitespace-nowrap">
                 <span className={`w-1.5 h-1.5 rounded-full ${a.status === '착석' ? 'bg-emerald-300' : 'bg-amber-200'}`} />
                 <span className="font-semibold">{a.name}</span><span className="text-white/75">{a.position}</span>
@@ -568,15 +567,14 @@ function BoardView({ attendees, stats, program, isAdmin, setStatus, toggleSpeech
                 <span className="text-white/60 font-mono">{a.seatedTime || a.arrivalTime}</span>
               </span>
             ))}
-            {present.length > 6 && <button onClick={() => setShowAll(v => !v)} className="text-[11px] font-bold underline px-1">{showAll ? '접기' : `+${present.length - 6}명 더`}</button>}
           </div>
         </div>
       )}
 
       {/* 식순 진행 */}
-      <div className="card px-2 py-1.5">
-        <div className="flex items-center gap-1.5 overflow-x-auto">
-          <span className="shrink-0 flex items-center gap-1 text-[11px] font-bold text-slate-600"><Clock className="w-3.5 h-3.5" />{clock}</span>
+      <div className="card px-3 py-2">
+        <div className="flex items-center gap-2 mb-1.5"><Clock className="w-3.5 h-3.5 text-slate-500" /><span className="text-xs font-bold">식순 진행</span><span className="ml-auto text-[11px] font-mono text-slate-500">현재 {clock}</span></div>
+        <div className="flex gap-1 overflow-x-auto pb-1">
           {program.map((p, i) => (
             <div key={p.id} className={`shrink-0 rounded px-2 py-1 border text-[11px] ${i === current ? 'bg-slate-900 text-white border-slate-900' : i < current ? 'bg-slate-100 text-slate-400 border-slate-200 line-through' : 'bg-white text-slate-700 border-slate-200'}`}>
               <span className="font-mono mr-1">{p.time}</span>{p.title}
@@ -586,18 +584,19 @@ function BoardView({ attendees, stats, program, isAdmin, setStatus, toggleSpeech
       </div>
 
       {/* 내빈 목록 */}
-      <div className="card p-2 sm:p-3">
-        <div className="flex flex-wrap items-center gap-1.5 mb-2">
-          <h2 className="section-title hidden sm:flex"><Users className="w-4 h-4" />내빈 현황</h2>
-          <input value={q} onChange={e => setQ(e.target.value)} placeholder="이름·소속 검색" className="border border-slate-300 rounded px-2 py-1 text-xs flex-1 min-w-0 sm:flex-none sm:w-40" />
-          <div className="order-last w-full sm:order-none sm:w-auto flex gap-1 overflow-x-auto">
+      <div className="card p-3">
+        <div className="flex flex-wrap items-center gap-2 mb-3">
+          <h2 className="section-title"><Users className="w-4 h-4" />내빈 현황</h2>
+          <input value={q} onChange={e => setQ(e.target.value)} placeholder="이름·소속 검색" className="border border-slate-300 rounded px-2 py-1 text-xs w-40" />
+          <div className="flex gap-1 flex-wrap">
             {['전체', ...STATUSES, '인사말씀'].map(f => {
               const n = f === '전체' ? attendees.length : f === '인사말씀' ? attendees.filter(a => a.speech).length : attendees.filter(a => a.status === f).length;
-              return <button key={f} onClick={() => setFilter(f)} className={`shrink-0 px-2 py-1 rounded-md text-[11px] font-semibold border ${filter === f ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'}`}>{f} <span className="opacity-60">{n}</span></button>;
+              return <button key={f} onClick={() => setFilter(f)} className={`px-2 py-1 rounded-md text-[11px] font-semibold border ${filter === f ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'}`}>{f} <span className="opacity-60">{n}</span></button>;
             })}
           </div>
-          <button onClick={() => setBig(v => !v)} className={`btn sm:ml-auto px-2 ${big ? 'btn-dark' : 'btn-outline'}`}>가<span className="text-[15px]">가</span></button>
-          <button onClick={printSpeech} className="btn btn-primary px-2"><Printer className="w-3 h-3" /><span className="hidden sm:inline">인사말씀 명단 </span>인쇄</button>
+          <button onClick={() => setBig(v => !v)} className={`btn ml-auto ${big ? 'btn-dark' : 'btn-outline'}`}>{big ? '글자 크게 ✓' : '글자 크게'}</button>
+          <button onClick={printSpeech} className="btn btn-primary"><Printer className="w-3 h-3" />인사말씀 명단 인쇄 ({stats.speakersPresent}/{stats.speakers})</button>
+          {!isAdmin && <span className="text-[10px] text-slate-400 flex items-center gap-1"><Eye className="w-3 h-3" />조회 전용</span>}
         </div>
 
         {categories.map(cat => {
@@ -605,12 +604,40 @@ function BoardView({ attendees, stats, program, isAdmin, setStatus, toggleSpeech
           if (!list.length) return null;
           const pc = list.filter(a => PRESENT.includes(a.status)).length;
           return (
-            <div key={cat} className="mb-2">
-              <div className="flex items-center gap-2 px-1 py-0.5 text-[11px]">
-                <b className="text-slate-700">{cat}</b><span className="text-slate-400 tabular-nums">{pc}/{list.length}</span><span className="flex-1 border-t border-slate-200" />
+            <div key={cat} className="mb-4">
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="text-xs font-bold text-white bg-slate-700 px-2 py-0.5 rounded">{cat}</span>
+                <span className="text-[11px] text-slate-500">참석 <b className={pc ? 'text-emerald-600' : ''}>{pc}</b>/{list.length}</span>
+                <span className="flex-1 border-t border-slate-200" />
               </div>
-              <div className={`grid gap-px bg-slate-200 rounded-lg overflow-hidden border border-slate-200 ${big ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3'}`}>
-                {list.map(a => <GuestRow key={a.id} a={a} big={big} onOpen={isAdmin ? () => setSheet(a.id) : undefined} />)}
+              <div className={`grid gap-2 ${big ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3'}`}>
+                {list.map(a => {
+                  const tone = a.status === '착석' ? 'border-l-emerald-500 bg-emerald-50' : a.status === '도착' ? 'border-l-amber-500 bg-amber-50' : a.status === '불참' ? 'border-l-rose-400 bg-rose-50/60 opacity-75' : a.status === '퇴장' ? 'border-l-slate-300 bg-slate-50 opacity-70' : 'border-l-slate-300 bg-white';
+                  const badge = a.status === '착석' ? 'bg-emerald-600 text-white' : a.status === '도착' ? 'bg-amber-500 text-white' : a.status === '불참' ? 'bg-rose-500 text-white' : a.status === '퇴장' ? 'bg-slate-400 text-white' : 'bg-slate-200 text-slate-600';
+                  return (
+                    <div key={a.id} onClick={() => isAdmin && setSheet(a.id)} className={`rounded-lg border border-slate-200 border-l-4 shadow-sm px-3 py-2 ${tone} ${isAdmin ? 'cursor-pointer hover:shadow-md hover:border-indigo-300 active:scale-[0.99] transition' : ''}`}>
+                      <div className="flex items-center gap-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-baseline gap-1.5 flex-wrap">
+                            <span className={`font-bold text-slate-900 leading-tight ${big ? 'text-2xl' : 'text-lg'}`}>{a.name}</span>
+                            <span className={`text-slate-700 font-medium ${big ? 'text-base' : 'text-sm'}`}>{a.position}</span>
+                            {a.speech && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-violet-600 text-white"><Mic2 className="w-2.5 h-2.5 inline -mt-0.5" /> {a.speechType}</span>}
+                          </div>
+                          <div className={`text-slate-500 truncate ${big ? 'text-sm' : 'text-xs'}`}>{a.organization}{a.note && <span className="text-slate-400"> · {a.note}</span>}</div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <span className={`inline-block px-2 py-1 rounded-md font-bold ${big ? 'text-sm' : 'text-xs'} ${badge}`}>{a.status}</span>
+                          <div className="text-[10px] text-slate-500 font-mono mt-1">{a.seat}{(a.seatedTime || a.arrivalTime) && ` · ${a.seatedTime || a.arrivalTime}`}</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 mt-1.5 text-[10px]">
+                        <span className={`px-1.5 py-0.5 rounded border ${a.intro ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-400 border-slate-300'}`}>소개 {a.intro ? '○' : '×'}</span>
+                        <span className={`px-1.5 py-0.5 rounded border ${a.speech ? 'bg-violet-600 text-white border-violet-600' : 'bg-white text-slate-400 border-slate-300'}`}>인사말씀 {a.speech ? '○' : '×'}</span>
+                        {isAdmin && <span className="ml-auto text-slate-400">누르면 체크 창</span>}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           );
@@ -672,38 +699,14 @@ function ActionSheet({ a, onClose, setStatus, toggleSpeech, toggleIntro, updateA
   );
 }
 
-// 한 줄짜리 내빈 행 — 높이 최소화(약 44px), 이름 우선
-const ROW_BAR = { '착석': 'bg-emerald-500', '도착': 'bg-amber-400', '미도착': 'bg-slate-300', '불참': 'bg-rose-400', '퇴장': 'bg-slate-300' };
-const ROW_BG = { '착석': 'bg-emerald-50/60', '도착': 'bg-amber-50/70', '미도착': 'bg-white', '불참': 'bg-rose-50/50 opacity-70', '퇴장': 'bg-slate-50 opacity-60' };
-const PILL = { '착석': 'bg-emerald-600 text-white', '도착': 'bg-amber-400 text-amber-950', '미도착': 'bg-slate-100 text-slate-500', '불참': 'bg-rose-100 text-rose-600', '퇴장': 'bg-slate-200 text-slate-500' };
-function GuestRow({ a, onOpen, showRank, big, right }) {
-  return (
-    <div onClick={onOpen} className={`relative flex items-center gap-2 pl-2.5 pr-1.5 ${big ? 'py-2' : 'py-1'} ${ROW_BG[a.status]} ${onOpen ? 'cursor-pointer active:bg-slate-100' : ''}`}>
-      <span className={`absolute left-0 top-0 bottom-0 w-1 ${ROW_BAR[a.status]}`} />
-      {showRank && <span className="w-5 shrink-0 text-center text-[11px] font-bold text-indigo-500 tabular-nums">{rankOf(a) === 999 ? '-' : rankOf(a)}</span>}
-      <div className="min-w-0 flex-1 leading-tight">
-        <div className="flex items-baseline gap-1 min-w-0">
-          <span className={`font-bold text-slate-900 whitespace-nowrap ${big ? 'text-xl' : 'text-[16px]'}`}>{a.name}</span>
-          <span className={`text-slate-600 truncate ${big ? 'text-sm' : 'text-[12px]'}`}>{a.position}</span>
-          {a.speech && <span className="shrink-0 text-[10px] font-bold px-1 rounded bg-violet-600 text-white">{a.speechType}</span>}
-          {!a.intro && <span className="shrink-0 text-[10px] px-1 rounded border border-slate-300 text-slate-400">소개×</span>}
-        </div>
-        <div className="text-[11px] text-slate-400 truncate">{a.organization}<span className="font-mono"> · {a.seat || '-'}</span>{(a.seatedTime || a.arrivalTime) && <span className="font-mono"> · {a.seatedTime || a.arrivalTime}</span>}</div>
-      </div>
-      {right}
-      {!right && <span className={`shrink-0 text-[11px] font-bold rounded px-1.5 py-0.5 ${PILL[a.status]}`}>{a.status}</span>}
-    </div>
-  );
-}
-
 function KPI({ label, value, sub, tone = 'slate' }) {
   const tones = { slate: 'text-slate-900', emerald: 'text-emerald-600', blue: 'text-blue-600', amber: 'text-amber-600', rose: 'text-rose-600', violet: 'text-violet-600' };
   const bars = { slate: 'bg-slate-400', emerald: 'bg-emerald-500', blue: 'bg-blue-500', amber: 'bg-amber-500', rose: 'bg-rose-500', violet: 'bg-violet-500' };
   return (
-    <div className="card px-2 py-1 sm:px-3 sm:py-2 relative overflow-hidden">
+    <div className="card px-3 py-2 relative overflow-hidden">
       <span className={`absolute left-0 top-0 bottom-0 w-1 ${bars[tone]}`} />
-      <div className="text-[10px] text-slate-500 pl-1 truncate">{label}</div>
-      <div className={`text-lg sm:text-xl font-bold leading-tight pl-1 tabular-nums whitespace-nowrap ${tones[tone]}`}>{value}{sub && <span className="hidden sm:inline text-xs font-medium text-slate-400 ml-1">{sub}</span>}</div>
+      <div className="text-[10px] text-slate-500 pl-1">{label}</div>
+      <div className={`text-xl font-bold leading-tight pl-1 ${tones[tone]}`}>{value}{sub && <span className="text-xs font-medium text-slate-400 ml-1">{sub}</span>}</div>
     </div>
   );
 }
@@ -1082,8 +1085,6 @@ function ManageView({ applyProtocol, onQuickAdd, attendees, updateAttendee, addA
   const [paste, setPaste] = useState('');
   const [q, setQ] = useState('');
   const [edit, setEdit] = useState(null);
-  const [more, setMore] = useState(false);
-  const [sheetId, setSheetId] = useState(null);
   const [sort, setSort] = useState(() => { try { return localStorage.getItem('mars-manage-sort') || 'rank'; } catch { return 'rank'; } });
   useEffect(() => { try { localStorage.setItem('mars-manage-sort', sort); } catch {} }, [sort]);
   const ST_ORDER = { '미도착': 0, '도착': 1, '착석': 2, '불참': 3, '퇴장': 4 };
@@ -1114,26 +1115,23 @@ function ManageView({ applyProtocol, onQuickAdd, attendees, updateAttendee, addA
   const reseat = async () => { if (await askUser('현재 목록 순서대로 좌석번호(A-01~)를 다시 매깁니다. 계속할까요?')) patch(s => ({ attendees: s.attendees.map((a, i) => ({ ...a, seat: `A-${String(i + 1).padStart(2, '0')}` })) })); };
 
   return (
-    <div className="card p-2 sm:p-3">
-      <div className="flex flex-wrap items-center gap-1.5 mb-2">
+    <div className="card p-3">
+      <div className="flex flex-wrap items-center gap-2 mb-3">
         <h2 className="section-title"><Users className="w-4 h-4" />내빈 관리 <span className="text-xs font-normal text-slate-500">{attendees.length}명</span></h2>
         <div className="relative flex-1 min-w-[140px] max-w-xs"><Search className="w-3.5 h-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" /><input value={q} onChange={e => setQ(e.target.value)} placeholder="이름·소속·좌석 검색" className="w-full border border-slate-300 rounded-md pl-7 pr-2 py-1.5 text-sm" /></div>
         <div className="w-full md:w-auto md:ml-auto flex flex-wrap gap-1">
-          <button onClick={onQuickAdd} className="btn btn-dark"><Plus className="w-3 h-3" />추가</button>
+          <button onClick={onQuickAdd} className="btn btn-dark"><Plus className="w-3 h-3" />1명 추가</button>
+          <button onClick={() => setShowPaste(v => !v)} className="btn btn-outline"><Upload className="w-3 h-3" />엑셀 붙여넣기</button>
+          <button onClick={exportCsv} className="btn btn-outline"><Download className="w-3 h-3" />엑셀(CSV) 저장</button>
           <button onClick={doProtocol} className="btn btn-primary">의전순 적용</button>
-          <button onClick={() => setMore(v => !v)} className="btn btn-outline md:hidden">{more ? '접기 ▴' : '더보기 ▾'}</button>
-          <div className={`${more ? 'flex' : 'hidden'} md:flex flex-wrap gap-1 w-full md:w-auto`}>
-            <button onClick={() => setShowPaste(v => !v)} className="btn btn-outline"><Upload className="w-3 h-3" />엑셀 붙여넣기</button>
-            <button onClick={exportCsv} className="btn btn-outline"><Download className="w-3 h-3" />엑셀(CSV) 저장</button>
-            <button onClick={reseat} className="btn btn-outline">좌석 재부여</button>
-            <button onClick={resetStatus} className="text-xs px-2 py-1.5 rounded border border-rose-300 text-rose-600 flex items-center gap-1"><RotateCcw className="w-3 h-3" />상태 초기화</button>
-          </div>
+          <button onClick={reseat} className="btn btn-outline">좌석 재부여</button>
+          <button onClick={resetStatus} className="text-xs px-2 py-1.5 rounded border border-rose-300 text-rose-600 flex items-center gap-1"><RotateCcw className="w-3 h-3" />상태 초기화</button>
         </div>
       </div>
-      <div className="flex items-center gap-1 mb-1.5 overflow-x-auto text-xs">
+      <div className="flex items-center gap-1 mb-2 overflow-x-auto text-xs">
         <span className="text-slate-500 shrink-0">정렬</span>
         {[['rank', '의전순'], ['status', '미도착 먼저'], ['seat', '좌석순'], ['name', '가나다순'], ['reg', '등록순']].map(([k, l]) => (
-          <button key={k} onClick={() => setSort(k)} className={`shrink-0 px-2 py-0.5 rounded-full border font-semibold ${sort === k ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-300'}`}>{l}</button>
+          <button key={k} onClick={() => setSort(k)} className={`shrink-0 px-2.5 py-1 rounded-full border font-semibold ${sort === k ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-300'}`}>{l}</button>
         ))}
       </div>
       {showPaste && (
@@ -1143,19 +1141,32 @@ function ManageView({ applyProtocol, onQuickAdd, attendees, updateAttendee, addA
           <div className="flex gap-1 mt-1"><button onClick={importPaste} className="text-xs px-3 py-1 rounded bg-blue-600 text-white">추가</button><button onClick={() => setShowPaste(false)} className="text-xs px-3 py-1 rounded border">취소</button></div>
         </div>
       )}
-      {/* 핸드폰: 한 줄 목록 — 이름 누르면 체크 창, 도착·착석은 바로 */}
-      <div className="md:hidden divide-y divide-slate-100 rounded-lg border border-slate-200 overflow-hidden">
+      {/* 핸드폰: 카드 목록 */}
+      <div className="md:hidden space-y-2">
         {shown.map(a => (
-          <GuestRow key={a.id} a={a} showRank onOpen={() => setSheetId(a.id)} right={
-            <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
-              <button onClick={() => setStatus(a.id, a.status === '도착' ? '미도착' : '도착')} className={`w-11 py-1.5 rounded-md text-[12px] font-bold border ${a.status === '도착' ? 'bg-amber-400 border-amber-500 text-amber-950' : 'bg-white border-amber-300 text-amber-600'}`}>도착</button>
-              <button onClick={() => setStatus(a.id, a.status === '착석' ? '도착' : '착석')} className={`w-11 py-1.5 rounded-md text-[12px] font-bold border ${a.status === '착석' ? 'bg-emerald-600 border-emerald-700 text-white' : 'bg-white border-emerald-300 text-emerald-700'}`}>착석</button>
-              <button onClick={() => setEdit(a.id)} className="p-1.5 text-slate-400"><Pencil className="w-3.5 h-3.5" /></button>
+          <div key={a.id} className={`rounded-lg border border-l-4 px-3 py-2 ${a.status === '착석' ? 'border-l-emerald-500 bg-emerald-50/50' : a.status === '도착' ? 'border-l-amber-500 bg-amber-50/50' : a.status === '불참' ? 'border-l-rose-400' : 'border-l-slate-300'} border-slate-200`}>
+            <div className="flex items-start gap-2">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-baseline gap-1.5 flex-wrap"><span className="text-[11px] font-bold text-indigo-600 tabular-nums">의전 {rankOf(a) === 999 ? '-' : rankOf(a)}</span><span className="text-lg font-bold">{a.name}</span><span className="text-sm text-slate-700">{a.position}</span></div>
+                <div className="text-xs text-slate-500 truncate">{a.category} · {a.organization} · <span className="font-mono">{a.seat || '좌석 없음'}</span></div>
+              </div>
+              <StatusChip status={a.status} />
+              <button onClick={() => setEdit(a.id)} className="p-1.5 rounded-md border border-slate-300 text-slate-600"><Pencil className="w-3.5 h-3.5" /></button>
             </div>
-          } />
+            <div className="grid grid-cols-4 gap-1.5 mt-2">
+              {[['도착', 'bg-amber-500 border-amber-500 text-white'], ['착석', 'bg-emerald-600 border-emerald-600 text-white'], ['불참', 'bg-white border-rose-300 text-rose-600'], ['미도착', 'bg-white border-slate-300 text-slate-500']].map(([st, cls]) => (
+                <button key={st} onClick={() => setStatus(a.id, st)} className={`rounded-md border py-2 text-sm font-bold ${a.status === st ? 'ring-2 ring-offset-1 ring-slate-800' : ''} ${cls}`}>{st === '미도착' ? '초기화' : st}</button>
+              ))}
+            </div>
+            <div className="flex items-center gap-2 mt-2 text-xs">
+              <button onClick={() => toggleIntro(a.id, !a.intro)} className={`px-2 py-1 rounded-md border font-semibold ${a.intro ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-400 border-slate-300'}`}>소개 {a.intro ? '○' : '×'}</button>
+              <button onClick={() => toggleSpeech(a.id, !a.speech)} className={`px-2 py-1 rounded-md border font-semibold ${a.speech ? 'bg-violet-600 text-white border-violet-600' : 'bg-white text-slate-400 border-slate-300'}`}>인사말씀 {a.speech ? '○' : '×'}</button>
+              {a.speech && <select value={a.speechType} onChange={e => updateAttendee(a.id, { speechType: e.target.value })} className="border border-violet-300 text-violet-700 rounded px-1 py-1">{SPEECH_TYPES.map(t => <option key={t}>{t}</option>)}</select>}
+              {(a.seatedTime || a.arrivalTime) && <span className="ml-auto text-slate-400 font-mono">{a.seatedTime || a.arrivalTime}</span>}
+            </div>
+          </div>
         ))}
       </div>
-      {sheetId != null && (() => { const a = attendees.find(x => x.id === sheetId); return a ? <ActionSheet a={a} onClose={() => setSheetId(null)} setStatus={setStatus} toggleSpeech={toggleSpeech} toggleIntro={toggleIntro} updateAttendee={updateAttendee} /> : null; })()}
       {edit != null && (() => { const a = attendees.find(x => x.id === edit); return a ? <EditModal a={a} onClose={() => setEdit(null)} updateAttendee={updateAttendee} onDelete={async () => { if (await askUser(`${a.name}을(를) 삭제할까요?`)) { removeAttendee(a.id); setEdit(null); } }} /> : null; })()}
       {/* 노트북: 표 */}
       <div className="hidden md:block overflow-x-auto">
