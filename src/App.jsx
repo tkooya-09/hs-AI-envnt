@@ -1,9 +1,12 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Upload, Search, Users, Crown, Star, UserCheck, Briefcase, MapPin, Car, Building2, Clock, CheckCircle2, AlertCircle, BarChart3, Smartphone, Trophy, FileText, Filter, Bell, X, ChevronRight, TrendingUp, Share2, Copy, Check, MessageCircle, UserPlus, Shield, Link2, QrCode, Trash2, Eye } from 'lucide-react';
 
 // ============ 샘플 데이터 생성 ============
 const generateSampleData = () => {
-  const vvipNames = ['김OO 도지사', '이OO 국회의원', '박OO 시장', '정OO 장관', '최OO 청장'];
+  const vvipNames = ['김OO 도지사', '이OO 국회의원', '박OO 시장', '정OO 장관', '최OO 청장',
+                     '강OO 국회의원', '조OO 차관', '윤OO 도의장', '장OO 시의장', '임OO 교육감',
+                     '한OO 대법관', '오OO 총장', '서OO 사장', '신OO 회장', '권OO 이사장',
+                     '황OO 군수', '안OO 구청장', '송OO 본부장', '류OO 원장', '전OO 단장'];
   const vipNames = ['행정부시장', '경제부시장', '시의회의장', '교육감', '경찰서장', '소방서장', '세무서장', '법원장', '검찰지청장', '상공회의소장',
                     '대학총장', '병원장', '문화원장', '체육회장', '농협조합장', '신협이사장', '언론사대표', '기업대표A', '기업대표B', '단체장'];
   const orgs = ['경기도청', '국회', '화성시청', '국토교통부', '환경부', '경기도의회', '화성교육지원청', '화성동부경찰서', '화성소방서', '화성세무서',
@@ -13,15 +16,15 @@ const generateSampleData = () => {
   const data = [];
   let idx = 1;
   
-  // VVIP 5명
+  // VVIP 20명
   vvipNames.forEach((name, i) => {
     data.push({
       id: idx++,
       name,
       grade: 'VVIP',
-      organization: orgs[i],
+      organization: orgs[i % orgs.length],
       position: name.split(' ')[1] || '귀빈',
-      vehicle: `${['12가', '34나', '56다', '78라', '90마'][i]} ${1000 + i * 111}`,
+      vehicle: `${['12가', '34나', '56다', '78라', '90마'][i % 5]} ${1000 + i * 111}`,
       seat: `A-${String(i + 1).padStart(2, '0')}`,
       manager: ['김의전', '이수행', '박비서'][i % 3],
       status: ['미도착', '주차장 도착', '로비 도착', '대기실', '착석 완료'][i % 5],
@@ -831,29 +834,30 @@ function DashboardView({ stats, vvipAlerts, attendees, updateStatus, onShare }) 
         </button>
       </div>
 
-      {/* VVIP 도착 알림 */}
+      {/* VVIP 도착 알림 (소형 칩 형태) */}
       {vvipAlerts.length > 0 && (
-        <div className="bg-gradient-to-r from-rose-600 to-rose-700 rounded-lg p-4 text-white shadow-lg">
-          <div className="flex items-center gap-2 mb-3">
-            <Bell className="w-5 h-5 animate-pulse" />
-            <h2 className="font-bold">VVIP 도착 알림</h2>
-            <span className="ml-auto text-xs bg-white/20 px-2 py-0.5 rounded">{vvipAlerts.length}명 도착</span>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-            {vvipAlerts.map(a => (
-              <div key={a.id} className="bg-white/15 backdrop-blur-sm rounded p-3 border border-white/20">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="font-semibold text-sm">{a.name}</div>
-                    <div className="text-xs text-white/80">{a.organization}</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-xs font-medium">{a.status}</div>
-                    {a.arrivalTime && <div className="text-xs text-white/70">{a.arrivalTime}</div>}
-                  </div>
-                </div>
-              </div>
-            ))}
+        <div className="bg-gradient-to-r from-rose-600 to-rose-700 rounded-lg px-3 py-2 text-white shadow">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <div className="flex items-center gap-1.5 mr-1 shrink-0">
+              <Bell className="w-3.5 h-3.5 animate-pulse" />
+              <span className="text-xs font-bold">VVIP 도착</span>
+              <span className="text-[10px] bg-white/25 px-1.5 py-0.5 rounded">{vvipAlerts.length}/{stats.byGrade.VVIP.length}</span>
+            </div>
+            {vvipAlerts.map(a => {
+              const dot = a.status === '착석 완료' ? 'bg-emerald-300' : a.status === '대기실' ? 'bg-indigo-200' : a.status === '로비 도착' ? 'bg-sky-200' : 'bg-amber-200';
+              return (
+                <span
+                  key={a.id}
+                  title={`${a.name} · ${a.organization} · ${a.status}${a.arrivalTime ? ' · ' + a.arrivalTime : ''}`}
+                  className="inline-flex items-center gap-1 bg-white/15 border border-white/20 rounded px-1.5 py-0.5 text-[11px] leading-4 whitespace-nowrap"
+                >
+                  <span className={`w-1.5 h-1.5 rounded-full ${dot}`} />
+                  <span className="font-semibold">{a.name}</span>
+                  <span className="text-white/75">{a.status}</span>
+                  {a.arrivalTime && <span className="text-white/60 font-mono">{a.arrivalTime}</span>}
+                </span>
+              );
+            })}
           </div>
         </div>
       )}
@@ -1253,59 +1257,145 @@ function VVIPView({ attendees, updateStatus }) {
   );
 }
 
-// ============ 좌석 현황 ============
+// ============ 좌석 현황 (구역 블록 이동 가능) ============
+const SEAT_LAYOUT_KEY = 'vip-seat-layout-v1';
+const DEFAULT_LAYOUT = {
+  A: { x: 20,  y: 20,  cols: 10 },
+  B: { x: 20,  y: 200, cols: 10 },
+  C: { x: 20,  y: 380, cols: 10 },
+};
+const loadLayout = () => {
+  try {
+    const saved = JSON.parse(localStorage.getItem(SEAT_LAYOUT_KEY) || 'null');
+    return saved ? { ...DEFAULT_LAYOUT, ...saved } : DEFAULT_LAYOUT;
+  } catch { return DEFAULT_LAYOUT; }
+};
+
 function SeatView({ attendees }) {
   const sections = ['A', 'B', 'C'];
-  
+  const [layout, setLayout] = useState(loadLayout);
+  const [dragging, setDragging] = useState(null); // { section, offX, offY }
+  const [zoom, setZoom] = useState(1);
+  const boardRef = useRef(null);
+
+  useEffect(() => {
+    try { localStorage.setItem(SEAT_LAYOUT_KEY, JSON.stringify(layout)); } catch {}
+  }, [layout]);
+
+  const onPointerDown = (e, section) => {
+    const board = boardRef.current.getBoundingClientRect();
+    const rect = e.currentTarget.parentElement.getBoundingClientRect();
+    setDragging({ section, offX: e.clientX - rect.left, offY: e.clientY - rect.top, boardLeft: board.left, boardTop: board.top });
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    e.preventDefault();
+  };
+  const onPointerMove = (e) => {
+    if (!dragging) return;
+    const board = boardRef.current;
+    const x = Math.max(0, (e.clientX - dragging.boardLeft - dragging.offX + board.scrollLeft) / zoom);
+    const y = Math.max(0, (e.clientY - dragging.boardTop - dragging.offY + board.scrollTop) / zoom);
+    setLayout(l => ({ ...l, [dragging.section]: { ...l[dragging.section], x: Math.round(x / 10) * 10, y: Math.round(y / 10) * 10 } }));
+  };
+  const onPointerUp = () => setDragging(null);
+
+  const setCols = (section, cols) => setLayout(l => ({ ...l, [section]: { ...l[section], cols } }));
+  const resetLayout = () => { setLayout(DEFAULT_LAYOUT); try { localStorage.removeItem(SEAT_LAYOUT_KEY); } catch {} };
+
+  const boardHeight = Math.max(700, ...sections.map(s => layout[s].y + 320));
+
   return (
     <div className="space-y-4">
       <div className="bg-white border border-slate-200 rounded-lg p-5">
-        <h2 className="text-base font-bold text-slate-900 mb-1 flex items-center gap-2">
-          <MapPin className="w-4 h-4" /> 좌석 현황
-        </h2>
-        <p className="text-xs text-slate-500 mb-4">색상이 채워진 좌석은 착석 완료 상태입니다.</p>
+        <div className="flex items-start justify-between gap-3 mb-1">
+          <div>
+            <h2 className="text-base font-bold text-slate-900 mb-1 flex items-center gap-2">
+              <MapPin className="w-4 h-4" /> 좌석 현황
+            </h2>
+            <p className="text-xs text-slate-500">색상이 채워진 좌석은 착석 완료 상태입니다. 구역 제목을 끌어서 블록 단위로 배치를 옮길 수 있습니다.</p>
+          </div>
+          <div className="flex items-center gap-1 shrink-0">
+            <button onClick={() => setZoom(z => Math.max(0.5, +(z - 0.1).toFixed(1)))} className="px-2 py-1 text-xs border border-slate-300 rounded hover:bg-slate-50">－</button>
+            <span className="text-[10px] text-slate-500 w-9 text-center">{Math.round(zoom * 100)}%</span>
+            <button onClick={() => setZoom(z => Math.min(1.5, +(z + 0.1).toFixed(1)))} className="px-2 py-1 text-xs border border-slate-300 rounded hover:bg-slate-50">＋</button>
+            <button onClick={resetLayout} className="ml-2 px-2 py-1 text-xs border border-slate-300 rounded hover:bg-slate-50">배치 초기화</button>
+          </div>
+        </div>
 
         {/* 무대 */}
-        <div className="bg-slate-800 text-white text-center py-3 rounded mb-6 text-xs font-bold tracking-widest">
+        <div className="bg-slate-800 text-white text-center py-3 rounded mt-3 mb-3 text-xs font-bold tracking-widest">
           ━━━━━ 무 대 (STAGE) ━━━━━
         </div>
 
-        {sections.map(section => {
-          const sectionAttendees = attendees.filter(a => a.seat.startsWith(section));
-          const grade = section === 'A' ? 'VVIP' : section === 'B' ? 'VIP' : '일반';
-          const style = GRADE_STYLES[grade];
-          
-          return (
-            <div key={section} className="mb-5">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold text-white ${style.bg}`}>{grade}</span>
-                  <span className="text-xs font-bold text-slate-700">{section} 구역 ({sectionAttendees.length}석)</span>
-                </div>
-                <span className="text-[10px] text-slate-500">
-                  착석 {sectionAttendees.filter(a => a.status === '착석 완료').length}/{sectionAttendees.length}
-                </span>
-              </div>
-              <div className="grid grid-cols-5 md:grid-cols-10 gap-1">
-                {sectionAttendees.map(a => {
-                  const seated = a.status === '착석 완료';
-                  return (
-                    <div
-                      key={a.id}
-                      title={`${a.seat} · ${a.name} · ${a.status}`}
-                      className={`aspect-square rounded text-[9px] flex flex-col items-center justify-center font-mono cursor-help transition-transform hover:scale-110 ${
-                        seated ? `${style.bg} text-white` : 'bg-slate-100 text-slate-400 border border-dashed border-slate-300'
-                      }`}
+        {/* 배치판 */}
+        <div
+          ref={boardRef}
+          className="relative overflow-auto rounded border border-dashed border-slate-300 bg-slate-50"
+          style={{ height: 720, backgroundImage: 'radial-gradient(#cbd5e1 1px, transparent 1px)', backgroundSize: '20px 20px', touchAction: 'none' }}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerLeave={onPointerUp}
+        >
+          <div style={{ position: 'relative', width: '100%', minHeight: boardHeight * zoom }}>
+          {sections.map(section => {
+            const sectionAttendees = attendees.filter(a => a.seat.startsWith(section));
+            const grade = section === 'A' ? 'VVIP' : section === 'B' ? 'VIP' : '일반';
+            const style = GRADE_STYLES[grade];
+            const pos = layout[section];
+            const seatPx = 44;
+            const width = pos.cols * seatPx + (pos.cols - 1) * 4 + 16;
+            const isDragging = dragging?.section === section;
+
+            return (
+              <div
+                key={section}
+                className={`absolute bg-white rounded-lg border shadow-sm select-none ${isDragging ? 'shadow-lg ring-2 ring-blue-400 z-20' : 'border-slate-200 z-10'}`}
+                style={{ left: pos.x * zoom, top: pos.y * zoom, width, transform: `scale(${zoom})`, transformOrigin: 'top left' }}
+              >
+                <div
+                  onPointerDown={(e) => onPointerDown(e, section)}
+                  className={`flex items-center justify-between px-2 py-1.5 rounded-t-lg cursor-grab active:cursor-grabbing ${style.light} border-b ${style.border}`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-slate-400 text-xs">⠿</span>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold text-white ${style.bg}`}>{grade}</span>
+                    <span className="text-xs font-bold text-slate-700">{section} 구역 ({sectionAttendees.length}석)</span>
+                  </div>
+                  <div className="flex items-center gap-2" onPointerDown={e => e.stopPropagation()}>
+                    <select
+                      value={pos.cols}
+                      onChange={e => setCols(section, Number(e.target.value))}
+                      className="text-[10px] border border-slate-300 rounded px-1 py-0.5 bg-white"
+                      title="한 줄 좌석 수"
                     >
-                      <div className="font-bold">{a.seat.split('-')[1]}</div>
-                      {seated && <div className="text-[7px] opacity-90">●</div>}
-                    </div>
-                  );
-                })}
+                      {[4, 5, 8, 10, 20].map(c => <option key={c} value={c}>{c}열</option>)}
+                    </select>
+                    <span className="text-[10px] text-slate-500">
+                      착석 {sectionAttendees.filter(a => a.status === '착석 완료').length}/{sectionAttendees.length}
+                    </span>
+                  </div>
+                </div>
+                <div className="p-2 grid gap-1" style={{ gridTemplateColumns: `repeat(${pos.cols}, ${seatPx}px)` }}>
+                  {sectionAttendees.map(a => {
+                    const seated = a.status === '착석 완료';
+                    return (
+                      <div
+                        key={a.id}
+                        title={`${a.seat} · ${a.name} · ${a.status}`}
+                        className={`aspect-square rounded text-[9px] flex flex-col items-center justify-center font-mono cursor-help transition-transform hover:scale-110 ${
+                          seated ? `${style.bg} text-white` : 'bg-slate-100 text-slate-400 border border-dashed border-slate-300'
+                        }`}
+                      >
+                        <div className="font-bold">{a.seat.split('-')[1]}</div>
+                        {seated && <div className="text-[7px] opacity-90">●</div>}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+          </div>
+        </div>
       </div>
     </div>
   );
