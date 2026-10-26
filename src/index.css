@@ -2,7 +2,19 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  margin: 0;
-  font-family: 'Noto Sans KR', system-ui, -apple-system, sans-serif;
+body { margin: 0; font-family: 'Noto Sans KR', system-ui, -apple-system, sans-serif; }
+
+@layer components {
+  .card { @apply bg-white border border-slate-200 rounded-xl shadow-sm; }
+  .section-title { @apply text-sm font-bold text-slate-900 flex items-center gap-1.5; }
+  .btn { @apply inline-flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-md font-semibold transition-colors; }
+  .btn-primary { @apply bg-indigo-600 text-white hover:bg-indigo-500; }
+  .btn-dark { @apply bg-slate-900 text-white hover:bg-slate-700; }
+  .btn-outline { @apply bg-white text-slate-700 border border-slate-300 hover:bg-slate-50; }
+  .stage { @apply bg-gradient-to-r from-slate-800 via-slate-900 to-slate-800 text-amber-200 text-center py-2 rounded-lg mb-2 text-xs font-bold tracking-widest shadow-inner; }
+}
+
+@media print {
+  @page { size: A4; margin: 12mm; }
+  body { background: #fff; }
 }
