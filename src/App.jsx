@@ -7,7 +7,7 @@ import { Users, Crown, MapPin, Clock, BarChart3, Mic2, FileText, Bell, X, Lock, 
 // =====================================================================
 
 const STORE_KEY = 'mars-vip-platform-v2';
-const APP_VERSION = '2.3.1';
+const APP_VERSION = '3.0.0';
 
 // ---------- 초기 자료 ----------
 const DEFAULT_EVENT = {
@@ -106,6 +106,8 @@ const DEFAULT_STATE = () => {
     seatLayout: { A: { x: 20, y: 20, cols: 10 } },
     adminPin: '1234',
     nextId: attendees.length + 1,
+    metaAt: 0,
+    tombstones: {},
   };
 };
 
@@ -135,6 +137,37 @@ const GRADE_STYLES = {
   '일반': { bg: 'bg-slate-500', light: 'bg-slate-50', border: 'border-slate-200' },
   '관계자': { bg: 'bg-sky-600', light: 'bg-sky-50', border: 'border-sky-200' },
 };
+// ---------- 공유 저장소(Supabase) ----------
+const SYNC = { url: 'https://sbnjodqxvwgqgdnzcziz.supabase.co', key: 'sb_publishable_vDOafQ_YqlElOwBxLeHHvA_x1mgHGLw', table: 'event_state', id: 'mars-2026' };
+const SYNC_ON = SYNC.url.startsWith('http');
+const mergeState = (local, remote) => {
+  if (!remote) return local;
+  if (!local) return remote;
+  const tomb = { ...(remote.tombstones || {}), ...(local.tombstones || {}) };
+  const byId = new Map();
+  [...(remote.attendees || []), ...(local.attendees || [])].forEach(a => {
+    const t = tomb[a.id]; if (t && t >= (a.u || 0)) return;
+    const cur = byId.get(a.id);
+    if (!cur || (a.u || 0) >= (cur.u || 0)) byId.set(a.id, a);
+  });
+  const meta = (local.metaAt || 0) >= (remote.metaAt || 0) ? local : remote;
+  const attendees = [...byId.values()].sort((a, b) => a.id - b.id);
+  return { ...meta, attendees, tombstones: tomb, nextId: Math.max(local.nextId || 0, remote.nextId || 0, ...attendees.map(a => a.id + 1)),
+    speechOrder: (meta.speechOrder || []).filter(id => byId.has(id)), introOrder: [...(meta.introOrder || []).filter(id => byId.has(id)), ...attendees.map(a => a.id).filter(id => !(meta.introOrder || []).includes(id))] };
+};
+const syncHeaders = (pin) => ({ apikey: SYNC.key, Authorization: `Bearer ${SYNC.key}`, 'Content-Type': 'application/json', ...(pin ? { 'x-event-pin': pin } : {}) });
+const syncPull = async () => {
+  const r = await fetch(`${SYNC.url}/rest/v1/${SYNC.table}?id=eq.${SYNC.id}&select=data`, { headers: syncHeaders() });
+  if (!r.ok) throw new Error('pull ' + r.status);
+  const rows = await r.json(); return rows[0]?.data || null;
+};
+const syncPush = async (data, pin) => {
+  const r = await fetch(`${SYNC.url}/rest/v1/${SYNC.table}?on_conflict=id`, { method: 'POST', headers: { ...syncHeaders(pin), Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify({ id: SYNC.id, pin, data, updated_at: new Date().toISOString() }) });
+  if (!r.ok) throw new Error('push ' + r.status);
+};
+const stripLocal = (s) => { const { seatLayout, ...rest } = s; return rest; }; // 배치는 기기별 설정
+
+const EMBEDDED = typeof window !== 'undefined' && window.self !== window.top;
 const nowHM = () => { const d = new Date(); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
 const honor = (a) => `${a.organization} ${a.name} ${a.position}님`;
 
@@ -148,6 +181,45 @@ export default function App() {
   const [loginOpen, setLoginOpen] = useState(false);
   const [quickAdd, setQuickAdd] = useState(false);
   const [toast, setToast] = useState(null);
+  const [ask, setAsk] = useState(null); // { msg, input, resolve }
+  const askUser = (msg, input) => new Promise(resolve => setAsk({ msg, input, resolve }));
+  const [sync, setSync] = useState({ on: SYNC_ON, status: SYNC_ON ? '연결 중' : '꺼짐', at: null, err: null });
+  const stateRef = useRef(state); stateRef.current = state;
+  const remoteRef = useRef(null); // 마지막으로 서버와 맞춘 내용(문자열)
+  const pushTimer = useRef(null);
+
+  // 서버 → 내 기기
+  const pull = async () => {
+    try {
+      const remote = await syncPull();
+      if (remote) {
+        const merged = mergeState(stripLocal(stateRef.current), remote);
+        const mergedStr = JSON.stringify(merged);
+        if (JSON.stringify(stripLocal(stateRef.current)) !== mergedStr) setState(s => ({ ...merged, seatLayout: s.seatLayout }));
+        remoteRef.current = JSON.stringify(remote);
+      }
+      setSync(x => ({ ...x, status: '연결됨', at: nowHM(), err: null }));
+    } catch (e) { setSync(x => ({ ...x, status: '연결 안 됨', err: String(e.message || e) })); }
+  };
+  // 내 기기 → 서버 (관리자만)
+  const push = async () => {
+    if (!isAdmin) return;
+    try {
+      const remote = await syncPull();
+      const merged = mergeState(stripLocal(stateRef.current), remote);
+      const mergedStr = JSON.stringify(merged);
+      if (JSON.stringify(stripLocal(stateRef.current)) !== mergedStr) setState(s => ({ ...merged, seatLayout: s.seatLayout }));
+      if (remoteRef.current !== mergedStr) { await syncPush(merged, merged.adminPin); remoteRef.current = mergedStr; }
+      setSync(x => ({ ...x, status: '연결됨', at: nowHM(), err: null }));
+    } catch (e) { setSync(x => ({ ...x, status: '저장 실패', err: String(e.message || e) })); }
+  };
+  useEffect(() => { if (!SYNC_ON) return; pull(); const t = setInterval(pull, 4000); return () => clearInterval(t); }, []);
+  useEffect(() => {
+    if (!SYNC_ON || !isAdmin) return;
+    if (JSON.stringify(stripLocal(state)) === remoteRef.current) return;
+    clearTimeout(pushTimer.current); pushTimer.current = setTimeout(push, 600);
+    return () => clearTimeout(pushTimer.current);
+  }, [state, isAdmin]);
 
   useEffect(() => { try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch {} }, [state]);
   useEffect(() => { if (toast) { const t = setTimeout(() => setToast(null), 2200); return () => clearTimeout(t); } }, [toast]);
@@ -157,7 +229,9 @@ export default function App() {
   const notify = (msg) => setToast(msg);
 
   // ----- 내빈 상태 -----
-  const updateAttendee = (id, changes) => patch(s => ({ attendees: s.attendees.map(a => a.id === id ? { ...a, ...changes } : a) }));
+  const now = () => Date.now();
+  const patchMeta = (fn) => patch(s => ({ ...fn(s), metaAt: now() }));
+  const updateAttendee = (id, changes) => patch(s => ({ attendees: s.attendees.map(a => a.id === id ? { ...a, ...changes, u: now() } : a) }));
   const setStatus = (id, status) => {
     const t = nowHM();
     patch(s => ({
@@ -167,25 +241,26 @@ export default function App() {
         if (status === '도착') { c.arrivalTime = a.arrivalTime || t; c.seatedTime = null; }
         if (status === '착석') { c.arrivalTime = a.arrivalTime || t; c.seatedTime = t; }
         if (status === '미도착') { c.arrivalTime = null; c.seatedTime = null; }
-        return { ...a, ...c };
+        return { ...a, ...c, u: now() };
       }),
     }));
   };
-  const toggleSpeech = (id, on) => patch(s => ({
-    attendees: s.attendees.map(a => a.id === id ? { ...a, speech: on } : a),
+  const toggleSpeech = (id, on) => patchMeta(s => ({
+    attendees: s.attendees.map(a => a.id === id ? { ...a, speech: on, u: now() } : a),
     speechOrder: on ? (s.speechOrder.includes(id) ? s.speechOrder : [...s.speechOrder, id]) : s.speechOrder.filter(x => x !== id),
   }));
-  const toggleIntro = (id, on) => patch(s => ({
-    attendees: s.attendees.map(a => a.id === id ? { ...a, intro: on } : a),
+  const toggleIntro = (id, on) => patchMeta(s => ({
+    attendees: s.attendees.map(a => a.id === id ? { ...a, intro: on, u: now() } : a),
     introOrder: on ? (s.introOrder.includes(id) ? s.introOrder : [...s.introOrder, id]) : s.introOrder.filter(x => x !== id),
   }));
-  const addAttendee = (data) => patch(s => {
-    const id = s.nextId;
-    const a = { id, category: '기타', organization: '', position: '', name: '', note: '', grade: 'VVIP', seat: '', status: '미도착', arrivalTime: null, seatedTime: null, intro: true, speech: false, speechType: '축사', ...data };
+  const addAttendee = (data) => patchMeta(s => {
+    const id = Math.max(s.nextId, ...s.attendees.map(a => a.id + 1), ...Object.keys(s.tombstones || {}).map(k => Number(k) + 1));
+    const a = { id, category: '기타', organization: '', position: '', name: '', note: '', grade: 'VVIP', seat: '', status: '미도착', arrivalTime: null, seatedTime: null, intro: true, speech: false, speechType: '축사', ...data, u: now() };
     return { attendees: [...s.attendees, a], introOrder: [...s.introOrder, id], nextId: id + 1 };
   });
-  const removeAttendee = (id) => patch(s => ({
+  const removeAttendee = (id) => patchMeta(s => ({
     attendees: s.attendees.filter(a => a.id !== id),
+    tombstones: { ...(s.tombstones || {}), [id]: now() },
     speechOrder: s.speechOrder.filter(x => x !== id),
     introOrder: s.introOrder.filter(x => x !== id),
   }));
@@ -226,6 +301,7 @@ export default function App() {
               <div className="text-[11px] text-slate-300 truncate">{event.date} · {event.place} · {event.host}</div>
             </div>
             <div className="ml-auto flex items-center gap-2 shrink-0">
+              {sync.on && <span title={sync.err || `마지막 동기화 ${sync.at || '-'}`} className={`hidden md:inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded-full border ${sync.status === '연결됨' ? 'border-emerald-400/50 text-emerald-200 bg-emerald-500/10' : 'border-amber-400/50 text-amber-200 bg-amber-500/10'}`}><span className={`w-1.5 h-1.5 rounded-full ${sync.status === '연결됨' ? 'bg-emerald-400' : 'bg-amber-400 animate-pulse'}`} />공유 {sync.status}{sync.at && ` ${sync.at}`}</span>}
               {isAdmin && <button onClick={() => setQuickAdd(true)} className="btn bg-amber-400 text-slate-900 hover:bg-amber-300 font-bold shadow"><UserPlus className="w-3.5 h-3.5" />긴급 내빈 추가</button>}
               <span className={`hidden sm:inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full border ${isAdmin ? 'bg-rose-500/20 text-rose-200 border-rose-400/40' : 'bg-white/10 text-slate-200 border-white/20'}`}>
                 {isAdmin ? <Unlock className="w-3 h-3" /> : <Eye className="w-3 h-3" />}{isAdmin ? '관리자 모드' : '조회 모드'}
@@ -256,21 +332,22 @@ export default function App() {
             <button onClick={() => setLoginOpen(true)} className="btn bg-amber-500 text-white hover:bg-amber-600 ml-auto shrink-0"><LogIn className="w-3.5 h-3.5" />관리자 입장</button>
           </div>
         )}
-        {view === 'board' && <BoardView attendees={attendees} stats={stats} program={program} isAdmin={isAdmin} setStatus={setStatus} toggleSpeech={toggleSpeech} toggleIntro={toggleIntro} updateAttendee={updateAttendee} printSpeech={() => { window.__printMode = 'speech'; window.dispatchEvent(new Event('printmode')); setTimeout(() => window.print(), 50); }} />}
+        {view === 'board' && <BoardView attendees={attendees} stats={stats} program={program} isAdmin={isAdmin} setStatus={setStatus} toggleSpeech={toggleSpeech} toggleIntro={toggleIntro} updateAttendee={updateAttendee} printSpeech={() => { if (EMBEDDED) { notify('인쇄는 노트북의 HTML 파일(또는 새 창)에서 하세요. 자료는 공유되어 있습니다'); return; } window.__printMode = 'speech'; window.dispatchEvent(new Event('printmode')); setTimeout(() => window.print(), 50); }} />}
         {view === 'speech' && <SpeechView attendees={attendees} speechOrder={speechOrder} introOrder={introOrder} isAdmin={isAdmin}
-          setSpeechOrder={o => patch(() => ({ speechOrder: o }))} setIntroOrder={o => patch(() => ({ introOrder: o }))}
+          setSpeechOrder={o => patchMeta(() => ({ speechOrder: o }))} setIntroOrder={o => patchMeta(() => ({ introOrder: o }))}
           updateAttendee={updateAttendee} toggleSpeech={toggleSpeech} toggleIntro={toggleIntro} notify={notify} />}
-        {view === 'seat' && <SeatView attendees={attendees} layout={state.seatLayout} setLayout={l => patch(s => ({ seatLayout: typeof l === 'function' ? l(s.seatLayout) : l }))} isAdmin={isAdmin} setStatus={setStatus} patch={patch} notify={notify} />}
+        {view === 'seat' && <SeatView attendees={attendees} layout={state.seatLayout} setLayout={l => patchMeta(s => ({ seatLayout: typeof l === 'function' ? l(s.seatLayout) : l }))} isAdmin={isAdmin} setStatus={setStatus} patch={patch} notify={notify} askUser={askUser} />}
         {view === 'report' && <ReportView stats={stats} attendees={attendees} event={event} speechOrder={speechOrder} notify={notify} />}
-        {view === 'manage' && isAdmin && <ManageView attendees={attendees} updateAttendee={updateAttendee} addAttendee={addAttendee} removeAttendee={removeAttendee} setStatus={setStatus} toggleSpeech={toggleSpeech} toggleIntro={toggleIntro} notify={notify} patch={patch} />}
-        {view === 'settings' && isAdmin && <SettingsView state={state} patch={patch} setState={setState} notify={notify} />}
+        {view === 'manage' && isAdmin && <ManageView attendees={attendees} updateAttendee={updateAttendee} addAttendee={addAttendee} removeAttendee={removeAttendee} setStatus={setStatus} toggleSpeech={toggleSpeech} toggleIntro={toggleIntro} notify={notify} askUser={askUser} patch={(fn) => patchMeta(s => { const r = fn(s); if (r.attendees) r.attendees = r.attendees.map(a => ({ ...a, u: now() })); return r; })} />}
+        {view === 'settings' && isAdmin && <SettingsView state={state} patch={patchMeta} setState={setState} notify={notify} sync={sync} askUser={askUser} />}
       </main>
 
       <footer className="print:hidden max-w-7xl mx-auto px-3 py-2 text-[10px] text-slate-400 flex justify-between">
         <span>화성특례시 AI스마트전략실 · 내빈 소개·인사말씀 운영 플랫폼 v{APP_VERSION}</span>
-        <span>자료는 이 브라우저에만 저장됩니다</span>
+        <span>{SYNC_ON ? '여러 기기가 같은 자료를 공유합니다(4초 간격)' : '자료는 이 브라우저에만 저장됩니다'}</span>
       </footer>
 
+      {ask && <AskModal ask={ask} onDone={v => { ask.resolve(v); setAsk(null); }} />}
       {loginOpen && <LoginModal onClose={() => setLoginOpen(false)} onLogin={login} />}
       {quickAdd && <QuickAddModal onClose={() => setQuickAdd(false)} attendees={attendees} onAdd={(d) => { addAttendee(d); setQuickAdd(false); notify(`${d.name} ${d.position}님을 ${d.status} 상태로 추가했습니다`); }} />}
       <PrintSheet event={event} attendees={attendees} speechOrder={speechOrder} introOrder={introOrder} stats={stats} />
@@ -298,6 +375,19 @@ function StatusButtons({ a, setStatus, compact }) {
       {btn('퇴장', 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50')}
       {btn('불참', 'bg-white text-rose-600 border-rose-300 hover:bg-rose-50')}
       <button onClick={() => setStatus(a.id, '미도착')} title="초기화" className={`${compact ? 'px-1.5 py-1' : 'px-2 py-1.5'} rounded border border-slate-200 text-slate-400 hover:bg-slate-50`}><RotateCcw className="w-3 h-3" /></button>
+    </div>
+  );
+}
+
+function AskModal({ ask, onDone }) {
+  const [v, setV] = useState('');
+  return (
+    <div className="fixed inset-0 bg-black/40 z-[60] flex items-center justify-center p-4" onClick={() => onDone(ask.input ? null : false)}>
+      <form onSubmit={e => { e.preventDefault(); onDone(ask.input ? v : true); }} onClick={e => e.stopPropagation()} className="bg-white rounded-xl p-4 w-full max-w-sm shadow-2xl">
+        <div className="text-sm text-slate-800 mb-3 whitespace-pre-line">{ask.msg}</div>
+        {ask.input && <input autoFocus value={v} onChange={e => setV(e.target.value)} className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm mb-3" />}
+        <div className="flex gap-2 justify-end"><button type="button" onClick={() => onDone(ask.input ? null : false)} className="btn btn-outline">취소</button><button className="btn btn-primary">확인</button></div>
+      </form>
     </div>
   );
 }
@@ -513,7 +603,9 @@ function KPI({ label, value, sub, tone = 'slate' }) {
 function OrderList({ ids, attendees, setOrder, editable, renderExtra, onRemove, presentOnly }) {
   const [dragIdx, setDragIdx] = useState(null);
   const [overIdx, setOverIdx] = useState(null);
+  const [picked, setPicked] = useState(null); // 눌러서 옮기기: 선택된 순번
   const list = ids.map(id => attendees.find(a => a.id === id)).filter(Boolean).filter(a => !presentOnly || PRESENT.includes(a.status));
+  const tap = (i) => { if (!editable) return; if (picked == null) setPicked(i); else { move(picked, i); setPicked(null); } };
   const visibleIds = list.map(a => a.id);
 
   const move = (from, to) => {
@@ -533,23 +625,24 @@ function OrderList({ ids, attendees, setOrder, editable, renderExtra, onRemove, 
 
   if (!list.length) return <div className="text-xs text-slate-400 text-center py-6 border border-dashed rounded">대상이 없습니다{presentOnly && ' (참석 내빈만 표시 중)'}</div>;
   return (
-    <div className="space-y-1.5" onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} style={{ touchAction: editable ? 'none' : 'auto' }}>
+    <div className="space-y-1.5" onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
+      {editable && <div className={`text-[11px] rounded px-2 py-1 ${picked != null ? 'bg-blue-600 text-white font-semibold' : 'bg-slate-100 text-slate-500'}`}>{picked != null ? `${picked + 1}번 선택됨 — 옮길 자리의 블록을 누르세요 (다시 누르면 취소)` : '블록을 누르면 선택, 다른 블록을 누르면 그 자리로 이동 · ⠿ 끌기 · ▲▼ 도 가능'}</div>}
       {list.map((a, i) => {
         const absent = !PRESENT.includes(a.status);
         return (
-          <div key={a.id} data-oidx={i}
-            className={`flex items-center gap-2 rounded-lg border px-2 py-2 bg-white select-none ${dragIdx === i ? 'opacity-50 ring-2 ring-blue-400' : overIdx === i && dragIdx != null ? 'border-blue-400 border-dashed' : absent ? 'border-rose-200 bg-rose-50/40' : 'border-slate-200'}`}>
-            {editable && <div onPointerDown={e => onDown(e, i)} className="cursor-grab active:cursor-grabbing text-slate-400 px-1 py-2 shrink-0"><GripVertical className="w-4 h-4" /></div>}
+          <div key={a.id} data-oidx={i} onClick={() => picked === i ? setPicked(null) : tap(i)}
+            className={`flex items-center gap-2 rounded-lg border px-2 py-2 bg-white select-none ${editable ? 'cursor-pointer' : ''} ${picked === i ? 'ring-2 ring-blue-600 bg-blue-50 border-blue-600' : picked != null ? 'border-blue-300 border-dashed' : dragIdx === i ? 'opacity-50 ring-2 ring-blue-400' : overIdx === i && dragIdx != null ? 'border-blue-400 border-dashed' : absent ? 'border-rose-200 bg-rose-50/40' : 'border-slate-200'}`}>
+            {editable && <div onPointerDown={e => onDown(e, i)} onClick={e => e.stopPropagation()} className="cursor-grab active:cursor-grabbing text-slate-400 px-1 py-2 shrink-0" style={{ touchAction: 'none' }}><GripVertical className="w-4 h-4" /></div>}
             <div className="w-6 h-6 rounded-full bg-slate-900 text-white text-xs font-bold flex items-center justify-center shrink-0">{i + 1}</div>
             <div className="min-w-0 flex-1">
               <div className="text-sm font-bold truncate">{a.name} <span className="text-xs font-normal text-slate-600">{a.position}</span></div>
               <div className="text-[11px] text-slate-500 truncate">{a.organization}</div>
             </div>
-            {renderExtra && renderExtra(a)}
+            {renderExtra && <span onClick={e => e.stopPropagation()}>{renderExtra(a)}</span>}
             <StatusChip status={a.status} small />
             {absent && <span className="text-[10px] text-rose-600 font-semibold hidden sm:inline">미참석</span>}
             {editable && (
-              <div className="flex items-center gap-0.5 shrink-0">
+              <div className="flex items-center gap-0.5 shrink-0" onClick={e => e.stopPropagation()}>
                 <button onClick={() => move(i, Math.max(0, i - 1))} className="text-slate-400 hover:text-slate-800 px-1 text-xs">▲</button>
                 <button onClick={() => move(i, Math.min(list.length - 1, i + 1))} className="text-slate-400 hover:text-slate-800 px-1 text-xs">▼</button>
                 {onRemove && <button onClick={() => onRemove(a.id)} className="text-slate-300 hover:text-rose-600 px-1"><X className="w-3.5 h-3.5" /></button>}
@@ -629,7 +722,7 @@ function SpeechView({ attendees, speechOrder, introOrder, setSpeechOrder, setInt
             <h2 className="text-sm font-bold">사회자 멘트 (자동 작성)</h2>
             <div className="flex gap-1">
               <button onClick={() => copy(tab === 'speech' ? speechScript : introScript)} className="btn btn-outline"><Copy className="w-3 h-3" />복사</button>
-              <button onClick={() => { window.__printMode = tab; window.dispatchEvent(new Event('printmode')); setTimeout(() => window.print(), 50); }} className="btn btn-primary"><Printer className="w-3 h-3" />인쇄</button>
+              <button onClick={() => { if (EMBEDDED) { notify('인쇄는 노트북의 HTML 파일에서 하세요. 자료는 공유되어 있습니다'); return; } window.__printMode = tab; window.dispatchEvent(new Event('printmode')); setTimeout(() => window.print(), 50); }} className="btn btn-primary"><Printer className="w-3 h-3" />인쇄</button>
             </div>
           </div>
           <textarea readOnly value={tab === 'speech' ? speechScript : introScript} className="flex-1 min-h-[280px] text-xs font-mono border border-slate-200 rounded p-2 bg-slate-50 leading-relaxed" />
@@ -643,7 +736,7 @@ function SpeechView({ attendees, speechOrder, introOrder, setSpeechOrder, setInt
 // =====================================================================
 // 좌석 현황 (구역 블록 이동 · 좌석 구역 재배정)
 // =====================================================================
-function SeatView({ attendees, layout, setLayout, isAdmin, setStatus, patch, notify }) {
+function SeatView({ attendees, layout, setLayout, isAdmin, setStatus, patch, notify, askUser }) {
   const seatZones = [...new Set(attendees.map(a => (a.seat || '').split('-')[0]).filter(Boolean))];
   const sections = [...new Set([...seatZones, ...Object.keys(layout).filter(k => k !== '_order')])];
   const [dragging, setDragging] = useState(null);
@@ -711,8 +804,8 @@ function SeatView({ attendees, layout, setLayout, isAdmin, setStatus, patch, not
   const setCols = (s, cols) => setLayout(l => ({ ...l, [s]: { ...get(s), cols } }));
   const boardHeight = Math.max(600, ...sections.map(s => get(s).y + 360));
 
-  const addZone = () => {
-    const name = (prompt('새 구역 이름(영문 한 글자 권장, 예: B)') || '').trim().toUpperCase().replace(/[^A-Z0-9가-힣]/g, '');
+  const addZone = async () => {
+    const name = ((await askUser('새 구역 이름 (영문 한 글자 권장, 예: B)', true)) || '').trim().toUpperCase().replace(/[^A-Z0-9가-힣]/g, '');
     if (!name) return;
     if (sections.includes(name)) return notify('이미 있는 구역입니다');
     const maxY = Math.max(0, ...sections.map(s => get(s).y + 300));
@@ -814,7 +907,7 @@ function SeatView({ attendees, layout, setLayout, isAdmin, setStatus, patch, not
 // =====================================================================
 // 내빈 관리 (관리자)
 // =====================================================================
-function ManageView({ attendees, updateAttendee, addAttendee, removeAttendee, setStatus, toggleSpeech, toggleIntro, notify, patch }) {
+function ManageView({ attendees, updateAttendee, addAttendee, removeAttendee, setStatus, toggleSpeech, toggleIntro, notify, patch, askUser }) {
   const [paste, setPaste] = useState('');
   const [showPaste, setShowPaste] = useState(false);
   const cell = 'border border-transparent hover:border-slate-300 focus:border-blue-400 rounded px-1 py-0.5 text-xs w-full bg-transparent';
@@ -836,8 +929,8 @@ function ManageView({ attendees, updateAttendee, addAttendee, removeAttendee, se
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
     const a = document.createElement('a'); a.href = url; a.download = `내빈현황_${new Date().toISOString().slice(0, 10)}.csv`; a.click();
   };
-  const resetStatus = () => { if (confirm('모든 내빈의 도착·착석 상태를 미도착으로 되돌립니다. 계속할까요?')) patch(s => ({ attendees: s.attendees.map(a => ({ ...a, status: '미도착', arrivalTime: null, seatedTime: null })) })); };
-  const reseat = () => { if (confirm('현재 목록 순서대로 좌석번호(A-01~)를 다시 매깁니다. 계속할까요?')) patch(s => ({ attendees: s.attendees.map((a, i) => ({ ...a, seat: `A-${String(i + 1).padStart(2, '0')}` })) })); };
+  const resetStatus = async () => { if (await askUser('모든 내빈의 도착·착석 상태를 미도착으로 되돌립니다. 계속할까요?')) patch(s => ({ attendees: s.attendees.map(a => ({ ...a, status: '미도착', arrivalTime: null, seatedTime: null })) })); };
+  const reseat = async () => { if (await askUser('현재 목록 순서대로 좌석번호(A-01~)를 다시 매깁니다. 계속할까요?')) patch(s => ({ attendees: s.attendees.map((a, i) => ({ ...a, seat: `A-${String(i + 1).padStart(2, '0')}` })) })); };
 
   return (
     <div className="card p-3">
@@ -880,7 +973,7 @@ function ManageView({ attendees, updateAttendee, addAttendee, removeAttendee, se
                 </td>
                 <td className="px-1 text-center"><input type="checkbox" checked={a.intro} onChange={e => toggleIntro(a.id, e.target.checked)} /></td>
                 <td className="px-1 w-32"><input className={cell} value={a.note} onChange={e => updateAttendee(a.id, { note: e.target.value })} /></td>
-                <td className="px-1"><button onClick={() => { if (confirm(`${a.name || '이 내빈'}을(를) 삭제할까요?`)) removeAttendee(a.id); }} className="text-slate-300 hover:text-rose-600"><Trash2 className="w-3.5 h-3.5" /></button></td>
+                <td className="px-1"><button onClick={async () => { if (await askUser(`${a.name || '이 내빈'}을(를) 삭제할까요?`)) removeAttendee(a.id); }} className="text-slate-300 hover:text-rose-600"><Trash2 className="w-3.5 h-3.5" /></button></td>
               </tr>
             ))}
           </tbody>
@@ -893,7 +986,7 @@ function ManageView({ attendees, updateAttendee, addAttendee, removeAttendee, se
 // =====================================================================
 // 설정 (관리자)
 // =====================================================================
-function SettingsView({ state, patch, setState, notify }) {
+function SettingsView({ state, patch, setState, notify, sync, askUser }) {
   const [ev, setEv] = useState(state.event);
   const [prog, setProg] = useState(state.program.map(p => `${p.time} | ${p.dur} | ${p.title} | ${p.note}`).join('\n'));
   const [pin1, setPin1] = useState(''); const [pin2, setPin2] = useState('');
@@ -910,7 +1003,7 @@ function SettingsView({ state, patch, setState, notify }) {
     const a = document.createElement('a'); a.href = url; a.download = `내빈플랫폼_백업_${new Date().toISOString().slice(0, 16).replace(/[:T]/g, '')}.json`; a.click();
   };
   const restore = (f) => { const r = new FileReader(); r.onload = () => { try { const s = JSON.parse(r.result); if (!s.attendees) throw 0; setState({ ...DEFAULT_STATE(), ...s }); notify('복원했습니다'); } catch { notify('파일 형식이 올바르지 않습니다'); } }; r.readAsText(f); };
-  const resetAll = () => { if (confirm('모든 자료를 초기 상태(RSVP 43명)로 되돌립니다. 백업을 먼저 받으셨나요?')) { setState(DEFAULT_STATE()); notify('초기화했습니다'); } };
+  const resetAll = async () => { if (await askUser('모든 자료를 초기 상태(RSVP 43명)로 되돌립니다. 백업을 먼저 받으셨나요?')) { setState(DEFAULT_STATE()); notify('초기화했습니다'); } };
   const box = 'card p-3';
   const inp = 'w-full border border-slate-300 rounded px-2 py-1.5 text-xs';
 
@@ -934,6 +1027,11 @@ function SettingsView({ state, patch, setState, notify }) {
         <div className="flex gap-2 mb-2"><input type="password" placeholder="새 비밀번호" value={pin1} onChange={e => setPin1(e.target.value)} className={inp} /><input type="password" placeholder="다시 입력" value={pin2} onChange={e => setPin2(e.target.value)} className={inp} /></div>
         <button onClick={savePin} className="btn btn-dark">변경</button>
         <p className="text-[10px] text-slate-400 mt-2">비밀번호는 이 브라우저에만 저장됩니다. 공용 PC에서는 사용 후 조회 모드로 전환하세요.</p>
+      </div>
+      <div className={box}>
+        <h2 className="section-title mb-2">여러 기기 공유</h2>
+        {sync?.on ? <p className="text-xs text-slate-600">공유 저장소에 연결되어 있습니다. 상태: <b>{sync.status}</b>{sync.at && ` (${sync.at})`}{sync.err && <span className="text-rose-600"> · {sync.err}</span>}<br />관리자 모드 기기에서 바꾼 내용이 서버에 저장되고, 모든 기기는 4초마다 서버 내용을 받아옵니다. 관리자 비밀번호가 서버 쓰기 열쇠이므로 바꾸면 모든 관리자 기기에서 새 비밀번호로 다시 입장하세요.</p>
+          : <p className="text-xs text-slate-600">공유 저장소가 설정되지 않은 파일입니다(이 브라우저에만 저장).</p>}
       </div>
       <div className={box}>
         <h2 className="section-title mb-2">자료 백업·복원</h2>
