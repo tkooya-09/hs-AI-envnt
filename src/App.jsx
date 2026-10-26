@@ -7,7 +7,7 @@ import { Users, Crown, MapPin, Clock, BarChart3, Mic2, FileText, Bell, X, Lock, 
 // =====================================================================
 
 const STORE_KEY = 'mars-vip-platform-v2';
-const APP_VERSION = '3.1.0';
+const APP_VERSION = '3.1.1';
 
 // ---------- 초기 자료 ----------
 const DEFAULT_EVENT = {
@@ -169,6 +169,7 @@ const stripLocal = (s) => { const { seatLayout, ...rest } = s; return rest; }; /
 
 const EMBEDDED = typeof window !== 'undefined' && window.self !== window.top;
 const nowHM = () => { const d = new Date(); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+const iga = (w) => { const c = (w || '').charCodeAt((w || '').length - 1) - 0xAC00; return c >= 0 && c <= 11171 && c % 28 ? '이' : '가'; };
 const honor = (a) => `${a.organization} ${a.name} ${a.position}님`;
 
 // =====================================================================
@@ -628,33 +629,40 @@ function OrderList({ ids, attendees, setOrder, editable, renderExtra, onRemove, 
   const onUp = () => { if (dragIdx != null && overIdx != null) move(dragIdx, overIdx); setDragIdx(null); setOverIdx(null); };
 
   if (!list.length) return <div className="text-xs text-slate-400 text-center py-6 border border-dashed rounded">대상이 없습니다{presentOnly && ' (참석 내빈만 표시 중)'}</div>;
+  const BAR = { '착석': 'bg-emerald-500', '도착': 'bg-amber-400', '미도착': 'bg-slate-300', '불참': 'bg-rose-400', '퇴장': 'bg-slate-300' };
+  const TXT = { '착석': 'text-emerald-700', '도착': 'text-amber-700', '미도착': 'text-slate-400', '불참': 'text-rose-600', '퇴장': 'text-slate-400' };
   return (
-    <div className="space-y-1.5" onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
-      {editable && <div className={`text-[11px] rounded px-2 py-1 ${picked != null ? 'bg-blue-600 text-white font-semibold' : 'bg-slate-100 text-slate-500'}`}>{picked != null ? `${picked + 1}번 선택됨 — 옮길 자리의 블록을 누르세요 (다시 누르면 취소)` : '블록을 누르면 선택, 다른 블록을 누르면 그 자리로 이동 · ⠿ 끌기 · ▲▼ 도 가능'}</div>}
-      {list.map((a, i) => {
-        const absent = !PRESENT.includes(a.status);
-        return (
-          <div key={a.id} data-oidx={i} onClick={() => picked === i ? setPicked(null) : tap(i)}
-            className={`flex items-center gap-2 rounded-lg border px-2 py-2 bg-white select-none ${editable ? 'cursor-pointer' : ''} ${picked === i ? 'ring-2 ring-blue-600 bg-blue-50 border-blue-600' : picked != null ? 'border-blue-300 border-dashed' : dragIdx === i ? 'opacity-50 ring-2 ring-blue-400' : overIdx === i && dragIdx != null ? 'border-blue-400 border-dashed' : absent ? 'border-rose-200 bg-rose-50/40' : 'border-slate-200'}`}>
-            {editable && <div onPointerDown={e => onDown(e, i)} onClick={e => e.stopPropagation()} className="cursor-grab active:cursor-grabbing text-slate-400 px-1 py-2 shrink-0" style={{ touchAction: 'none' }}><GripVertical className="w-4 h-4" /></div>}
-            <div className="w-6 h-6 rounded-full bg-slate-900 text-white text-xs font-bold flex items-center justify-center shrink-0">{i + 1}</div>
-            <div className="min-w-0 flex-1">
-              <div className="text-sm font-bold truncate">{a.name} <span className="text-xs font-normal text-slate-600">{a.position}</span></div>
-              <div className="text-[11px] text-slate-500 truncate">{a.organization}</div>
-            </div>
-            {renderExtra && <span onClick={e => e.stopPropagation()}>{renderExtra(a)}</span>}
-            <StatusChip status={a.status} small />
-            {absent && <span className="text-[10px] text-rose-600 font-semibold hidden sm:inline">미참석</span>}
-            {editable && (
-              <div className="flex items-center gap-0.5 shrink-0" onClick={e => e.stopPropagation()}>
-                <button onClick={() => move(i, Math.max(0, i - 1))} className="text-slate-400 hover:text-slate-800 px-1 text-xs">▲</button>
-                <button onClick={() => move(i, Math.min(list.length - 1, i + 1))} className="text-slate-400 hover:text-slate-800 px-1 text-xs">▼</button>
-                {onRemove && <button onClick={() => onRemove(a.id)} className="text-slate-300 hover:text-rose-600 px-1"><X className="w-3.5 h-3.5" /></button>}
+    <div onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
+      {editable && picked != null && <div className="sticky top-[92px] z-20 mb-1 text-xs rounded-md px-2 py-1.5 bg-blue-600 text-white font-semibold shadow">{picked + 1}번 {list[picked]?.name} 선택 — 들어갈 자리를 누르세요 <button className="underline ml-1" onClick={() => setPicked(null)}>취소</button></div>}
+      <div className="divide-y divide-slate-100 rounded-lg border border-slate-200 overflow-hidden">
+        {list.map((a, i) => {
+          const absent = !PRESENT.includes(a.status);
+          return (
+            <div key={a.id} data-oidx={i} onClick={() => picked === i ? setPicked(null) : tap(i)}
+              className={`relative flex items-center gap-2 pl-2.5 pr-1.5 py-1.5 select-none ${editable ? 'cursor-pointer active:bg-slate-100' : ''} ${picked === i ? 'bg-blue-100' : picked != null ? 'bg-blue-50/40' : dragIdx === i ? 'opacity-40' : overIdx === i && dragIdx != null ? 'bg-blue-50' : absent ? 'bg-rose-50/50' : 'bg-white'}`}>
+              <span className={`absolute left-0 top-0 bottom-0 w-1 ${BAR[a.status]}`} />
+              <span className="w-6 text-center text-sm font-bold text-slate-500 tabular-nums shrink-0">{i + 1}</span>
+              <div className="min-w-0 flex-1 leading-tight">
+                <div className="flex items-baseline gap-1.5 min-w-0">
+                  <span className="text-[17px] font-bold text-slate-900 whitespace-nowrap">{a.name}</span>
+                  <span className="text-[13px] text-slate-600 truncate">{a.position}</span>
+                </div>
+                <div className="text-[11px] text-slate-400 truncate">{a.organization}</div>
               </div>
-            )}
-          </div>
-        );
-      })}
+              {renderExtra && <span className="shrink-0" onClick={e => e.stopPropagation()}>{renderExtra(a)}</span>}
+              <span className={`shrink-0 w-9 text-right text-[11px] font-bold ${TXT[a.status]}`}>{a.status === '미도착' ? '미도착' : a.status}</span>
+              {editable && (
+                <div className="hidden sm:flex items-center shrink-0" onClick={e => e.stopPropagation()}>
+                  <button onClick={() => move(i, Math.max(0, i - 1))} className="text-slate-400 hover:text-slate-800 px-1 text-xs">▲</button>
+                  <button onClick={() => move(i, Math.min(list.length - 1, i + 1))} className="text-slate-400 hover:text-slate-800 px-1 text-xs">▼</button>
+                  {onRemove && <button onClick={() => onRemove(a.id)} className="text-slate-300 hover:text-rose-600 px-1"><X className="w-3.5 h-3.5" /></button>}
+                </div>
+              )}
+              {editable && <div onPointerDown={e => onDown(e, i)} onClick={e => e.stopPropagation()} className="cursor-grab active:cursor-grabbing text-slate-300 pl-1 py-2 shrink-0" style={{ touchAction: 'none' }}><GripVertical className="w-4 h-4" /></div>}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -674,7 +682,7 @@ function SpeechView({ attendees, speechOrder, introOrder, setSpeechOrder, setInt
   const presentIntros = intros.filter(a => PRESENT.includes(a.status));
 
   const speechScript = (presentOnly ? presentSpeakers : speakers).map((a, i) =>
-    `${i + 1}. 다음은 ${honor(a)}의 ${a.speechType}이 있겠습니다. 큰 박수로 맞아 주시기 바랍니다.`).join('\n');
+    `${i + 1}. 다음은 ${honor(a)}의 ${a.speechType}${iga(a.speechType)} 있겠습니다. 큰 박수로 맞아 주시기 바랍니다.`).join('\n');
   const introScript = (() => {
     const list = presentOnly ? presentIntros : intros;
     const groups = [];
@@ -688,14 +696,14 @@ function SpeechView({ attendees, speechOrder, introOrder, setSpeechOrder, setInt
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex rounded border border-slate-300 overflow-hidden">
-          <button onClick={() => setTab('speech')} className={`px-3 py-1.5 text-xs font-semibold flex items-center gap-1 ${tab === 'speech' ? 'bg-slate-900 text-white' : 'bg-white text-slate-600'}`}><Mic2 className="w-3.5 h-3.5" />인사말씀 순서 ({presentSpeakers.length}/{speakers.length})</button>
-          <button onClick={() => setTab('intro')} className={`px-3 py-1.5 text-xs font-semibold flex items-center gap-1 ${tab === 'intro' ? 'bg-slate-900 text-white' : 'bg-white text-slate-600'}`}><ListOrdered className="w-3.5 h-3.5" />내빈 소개 순서 ({presentIntros.length}/{intros.length})</button>
+        <div className="grid grid-cols-2 w-full sm:w-auto rounded-md border border-slate-300 overflow-hidden">
+          <button onClick={() => setTab('speech')} className={`px-3 py-2 text-sm font-bold flex items-center justify-center gap-1 ${tab === 'speech' ? 'bg-slate-900 text-white' : 'bg-white text-slate-600'}`}><Mic2 className="w-3.5 h-3.5" />인사말씀 <span className="tabular-nums opacity-80">{presentSpeakers.length}/{speakers.length}</span></button>
+          <button onClick={() => setTab('intro')} className={`px-3 py-2 text-sm font-bold flex items-center justify-center gap-1 ${tab === 'intro' ? 'bg-slate-900 text-white' : 'bg-white text-slate-600'}`}><ListOrdered className="w-3.5 h-3.5" />내빈 소개 <span className="tabular-nums opacity-80">{presentIntros.length}/{intros.length}</span></button>
         </div>
-        <label className="flex items-center gap-1 text-xs text-slate-600 cursor-pointer"><input type="checkbox" checked={presentOnly} onChange={e => setPresentOnly(e.target.checked)} />참석(도착·착석) 내빈만</label>
+        <label className="flex items-center gap-1 text-xs text-slate-600 cursor-pointer"><input type="checkbox" checked={presentOnly} onChange={e => setPresentOnly(e.target.checked)} />참석자만</label>
         {isAdmin && (
-          <div className="ml-auto flex items-center gap-1">
-            <select value={addId} onChange={e => setAddId(e.target.value)} className="text-xs border border-slate-300 rounded px-2 py-1.5 max-w-[220px]">
+          <div className="ml-auto flex items-center gap-1 min-w-0 flex-1 sm:flex-none justify-end">
+            <select value={addId} onChange={e => setAddId(e.target.value)} className="text-xs border border-slate-300 rounded px-2 py-1.5 min-w-0 flex-1 sm:flex-none sm:max-w-[220px] bg-white">
               <option value="">+ 대상 추가…</option>
               {candidates.map(a => <option key={a.id} value={a.id}>{a.name} {a.position} · {a.organization}</option>)}
             </select>
@@ -705,16 +713,16 @@ function SpeechView({ attendees, speechOrder, introOrder, setSpeechOrder, setInt
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-3">
-        <div className="lg:col-span-3 bg-white border border-slate-200 rounded-lg p-3">
-          <div className="flex items-center justify-between mb-2">
+        <div className="lg:col-span-3">
+          <div className="flex items-center justify-between mb-1 px-1">
             <h2 className="text-sm font-bold">{tab === 'speech' ? '인사말씀 순서' : '내빈 소개 순서'}</h2>
-            <span className="text-[10px] text-slate-400">{isAdmin ? '⠿ 손잡이를 끌어 블록 단위로 순서를 바꿉니다' : '조회 전용'}</span>
+            <span className="text-[10px] text-slate-400">{isAdmin ? '누르고 → 들어갈 자리 누르기 · ⠿ 끌기' : '조회 전용'}</span>
           </div>
           {tab === 'speech' ? (
             <OrderList ids={speechOrder} attendees={attendees} setOrder={setSpeechOrder} editable={isAdmin} presentOnly={presentOnly} onRemove={id => toggleSpeech(id, false)}
               renderExtra={a => isAdmin
-                ? <select value={a.speechType} onChange={e => updateAttendee(a.id, { speechType: e.target.value })} className="text-[11px] border border-violet-300 text-violet-700 rounded px-1 py-0.5 bg-violet-50">{SPEECH_TYPES.map(t => <option key={t}>{t}</option>)}</select>
-                : <span className="text-[11px] px-1.5 py-0.5 rounded bg-violet-50 text-violet-700 border border-violet-200 font-semibold">{a.speechType}</span>} />
+                ? <select value={a.speechType} onChange={e => updateAttendee(a.id, { speechType: e.target.value })} className="appearance-none text-[12px] font-bold border border-violet-300 text-violet-700 rounded-md px-1.5 py-0.5 bg-violet-50 text-center">{SPEECH_TYPES.map(t => <option key={t}>{t}</option>)}</select>
+                : <span className="text-[12px] px-1.5 py-0.5 rounded-md bg-violet-50 text-violet-700 border border-violet-200 font-bold">{a.speechType}</span>} />
           ) : (
             <OrderList ids={introIds} attendees={attendees} editable={isAdmin} presentOnly={presentOnly} onRemove={id => toggleIntro(id, false)}
               setOrder={vis => { const hidden = introOrder.filter(id => !vis.includes(id)); setIntroOrder([...vis, ...hidden]); }}
