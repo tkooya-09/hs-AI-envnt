@@ -1,1392 +1,631 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Upload, Search, Users, Crown, Star, UserCheck, Briefcase, MapPin, Car, Building2, Clock, CheckCircle2, AlertCircle, BarChart3, Smartphone, Trophy, FileText, Filter, Bell, X, ChevronRight, TrendingUp, Share2, Copy, Check, MessageCircle, UserPlus, Shield, Link2, QrCode, Trash2, Eye } from 'lucide-react';
+import { Users, Crown, MapPin, Clock, BarChart3, Mic2, FileText, Bell, X, Lock, Unlock, Settings, Copy, Plus, Trash2, GripVertical, Download, Upload, RotateCcw, ListOrdered, Eye, LogIn } from 'lucide-react';
 
-// ============ 샘플 데이터 생성 ============
-const generateSampleData = () => {
-  const vvipNames = ['김OO 도지사', '이OO 국회의원', '박OO 시장', '정OO 장관', '최OO 청장',
-                     '강OO 국회의원', '조OO 차관', '윤OO 도의장', '장OO 시의장', '임OO 교육감',
-                     '한OO 대법관', '오OO 총장', '서OO 사장', '신OO 회장', '권OO 이사장',
-                     '황OO 군수', '안OO 구청장', '송OO 본부장', '류OO 원장', '전OO 단장'];
-  const vipNames = ['행정부시장', '경제부시장', '시의회의장', '교육감', '경찰서장', '소방서장', '세무서장', '법원장', '검찰지청장', '상공회의소장',
-                    '대학총장', '병원장', '문화원장', '체육회장', '농협조합장', '신협이사장', '언론사대표', '기업대표A', '기업대표B', '단체장'];
-  const orgs = ['경기도청', '국회', '화성시청', '국토교통부', '환경부', '경기도의회', '화성교육지원청', '화성동부경찰서', '화성소방서', '화성세무서',
-                '수원지방법원', '수원지방검찰청', '화성상공회의소', '한국대학교', '화성중앙병원', '화성문화원', '화성시체육회', '화성농협'];
-  const positions = ['도지사', '국회의원', '시장', '장관', '청장', '부시장', '의장', '교육감', '서장', '대표', '회장', '원장', '단장', '본부장', '국장', '과장', '팀장'];
-  
-  const data = [];
-  let idx = 1;
-  
-  // VVIP 20명
-  vvipNames.forEach((name, i) => {
-    data.push({
-      id: idx++,
-      name,
-      grade: 'VVIP',
-      organization: orgs[i % orgs.length],
-      position: name.split(' ')[1] || '귀빈',
-      vehicle: `${['12가', '34나', '56다', '78라', '90마'][i % 5]} ${1000 + i * 111}`,
-      seat: `A-${String(i + 1).padStart(2, '0')}`,
-      manager: ['김의전', '이수행', '박비서'][i % 3],
-      status: ['미도착', '주차장 도착', '로비 도착', '대기실', '착석 완료'][i % 5],
-      arrivalTime: i < 3 ? `${13 + i}:${20 + i * 5}` : null,
-    });
-  });
-  
-  // VIP 20명
-  vipNames.forEach((name, i) => {
-    data.push({
-      id: idx++,
-      name: `VIP-${String(i+1).padStart(2,'0')} ${name}`,
-      grade: 'VIP',
-      organization: orgs[(i + 5) % orgs.length],
-      position: positions[i % positions.length],
-      vehicle: `${['가', '나', '다', '라', '마'][i % 5]}${100 + i} ${2000 + i}`,
-      seat: `B-${String(i + 1).padStart(2, '0')}`,
-      manager: ['김의전', '이수행', '박비서', '정담당', '최운영'][i % 5],
-      status: ['미도착', '주차장 도착', '로비 도착', '대기실', '착석 완료', '미도착', '주차장 도착'][i % 7],
-      arrivalTime: i % 3 !== 0 ? `${13 + (i % 2)}:${10 + i * 2}` : null,
-    });
-  });
-  
-  // 일반 50명
-  for (let i = 0; i < 50; i++) {
-    data.push({
-      id: idx++,
-      name: `참석자${String(i+1).padStart(3,'0')}`,
-      grade: '일반',
-      organization: orgs[i % orgs.length],
-      position: positions[i % positions.length],
-      vehicle: `${['바', '사', '아', '자', '차'][i % 5]}${200 + i} ${3000 + i}`,
-      seat: `C-${String(i + 1).padStart(2, '0')}`,
-      manager: ['김의전', '이수행', '박비서', '정담당', '최운영'][i % 5],
-      status: ['미도착', '주차장 도착', '로비 도착', '착석 완료', '미도착', '착석 완료'][i % 6],
-      arrivalTime: i % 2 === 0 ? `${13 + (i % 2)}:${(i % 50)}`.padEnd(5, '0') : null,
-    });
-  }
-  
-  // 관계자 10명
-  for (let i = 0; i < 10; i++) {
-    data.push({
-      id: idx++,
-      name: `관계자${String(i+1).padStart(2,'0')}`,
-      grade: '관계자',
-      organization: '화성시청 빅데이터팀',
-      position: ['주무관', '주사', '사무관'][i % 3],
-      vehicle: `관용 ${4000 + i}`,
-      seat: `STAFF-${String(i + 1).padStart(2, '0')}`,
-      manager: '운영본부',
-      status: '착석 완료',
-      arrivalTime: `12:${(i * 5)}`.padEnd(5, '0'),
-    });
-  }
-  
-  return data;
+// =====================================================================
+// 공공행사 내빈 소개·인사말씀 운영 플랫폼 (AI EXPO 「MARS 2026」 개막식)
+// 단일 파일 React 앱 · 모든 자료는 브라우저(localStorage)에 저장
+// =====================================================================
+
+const STORE_KEY = 'mars-vip-platform-v2';
+const APP_VERSION = '2.0.0';
+
+// ---------- 초기 자료 ----------
+const DEFAULT_EVENT = {
+  name: 'AI EXPO 「MARS 2026」 개막식',
+  date: '2026. 11. 3.(화) 11:00',
+  place: '코엑스 3층 오디토리움',
+  host: '화성특례시',
+  mc: '사회자',
 };
 
-// ============ 상수 ============
-const STATUSES = ['미도착', '주차장 도착', '로비 도착', '대기실', '착석 완료', '퇴장', '불참'];
+const DEFAULT_PROGRAM = [
+  { id: 'p1', time: '11:00', dur: 10, title: '주제영상 상영 및 오프닝 공연', note: '휴머노이드 퍼포먼스' },
+  { id: 'p2', time: '11:10', dur: 5, title: '단체 기념 촬영', note: '' },
+  { id: 'p3', time: '11:15', dur: 1, title: '개회', note: '사회자' },
+  { id: 'p4', time: '11:16', dur: 1, title: '국민의례', note: '국기에 대한 맹세' },
+  { id: 'p5', time: '11:17', dur: 3, title: '내빈 소개', note: '' },
+  { id: 'p6', time: '11:20', dur: 10, title: '개회사·환영사·축사', note: '화성특례시장, 시의회 의장 등' },
+  { id: 'p7', time: '11:30', dur: 25, title: '기조연설', note: '샘 리처드 교수' },
+  { id: 'p8', time: '11:55', dur: 8, title: 'MARS 얼라이언스 출정식', note: '주요 참여 기업' },
+  { id: 'p9', time: '12:03', dur: 2, title: 'VIP 이동', note: '오디토리움 → D홀' },
+  { id: 'p10', time: '12:05', dur: 25, title: 'VIP 전시 투어', note: '코엑스 3층 D홀' },
+];
 
-const STATUS_COLORS = {
+// 2차 RSVP(10.23.) 참석 회신 내빈 43명
+const SEED = [
+  ['국회', '국회', '국회의원', '김종민', ''],
+  ['정부부처', '국가인공지능전략위원회', '상근부위원장', '하정우', '가급적 참석 예정'],
+  ['정부부처', '국가인공지능전략위원회', '공공AX 분과위원', '하용호', ''],
+  ['정부부처', '국가인공지능전략위원회', '공공AX 분과위원', '김동환', ''],
+  ['정부부처', '국가인공지능전략위원회', '데이터 분과위원', '조성배', ''],
+  ['정부부처', '국가인공지능전략위원회', '글로벌협력 분과위원', '전종홍', ''],
+  ['정부 산하기관', '한국데이터산업진흥원', '원장', '양재수', ''],
+  ['유관기관', '한국피지컬AI협회', '협회장', '유태준', ''],
+  ['유관기관', '한국항공우주학회', '회장', '구남서', ''],
+  ['유관기관', '한국천문학회', '회장', '채종철', ''],
+  ['지자체·기관', '과천시의회', '의장', '황선희', ''],
+  ['산업 관련 기관', '경기지역FTA통상진흥센터', '센터장', '한상선', ''],
+  ['관내 유관기관', '화성상공회의소', '회장', '안상교', ''],
+  ['산업진흥원', '군포산업진흥원', '원장', '유병직', ''],
+  ['산업진흥원', '성남산업진흥원', '원장', '이주연', ''],
+  ['산업진흥원', '시흥산업진흥원', '원장', '임창주', ''],
+  ['산업진흥원', '부천산업진흥원', '원장', '신동학', ''],
+  ['대학교', '협성대학교', '총장', '서명수', ''],
+  ['대학교', '장안대학교', '총장', '이종진', ''],
+  ['대학교', '화성의과학대학교', '총장', '김진영', ''],
+  ['투자사', '캡스톤파트너스', '부사장', '황태칠', ''],
+  ['투자사', '앨엔에스벤처캐피탈', '대표이사', '장동식', ''],
+  ['투자사', '㈜신한벤처투자', '투자부문대표', '장기용', ''],
+  ['투자사', '타임웍스인베스트먼트', '대표이사', '나종윤', ''],
+  ['투자사', '제피러스랩', '대표이사', '서영우', ''],
+  ['MARS 얼라이언스', '화성특례시', '시장', '정명근', '주최'],
+  ['MARS 얼라이언스', '화성시의회', '의장', '이계철', ''],
+  ['MARS 얼라이언스', '화성산업진흥원', '원장', '전병선', ''],
+  ['MARS 얼라이언스', '신세계프라퍼티', '개발본부장(상무)', '서재옥', ''],
+  ['MARS 얼라이언스', '볼트라인', '대표이사', '김도원', ''],
+  ['MARS 얼라이언스', '기아', '상무', '이혜영', '국내마케팅실'],
+  ['MARS 얼라이언스', 'JMR', '대표', '김동진', ''],
+  ['MARS 얼라이언스', '제우스', '팀장', '황재익', ''],
+  ['MARS 얼라이언스', '아비만로보틱스', '연구소장', '함민기', ''],
+  ['MARS 얼라이언스', '삼성생명', '부사장', '최정훈', ''],
+  ['MARS 얼라이언스', '삼성생명', '상무', '김봉재', ''],
+  ['MARS 얼라이언스', '삼성생명', '상무', '오상택', ''],
+  ['MARS 얼라이언스', '동탄시티병원', '행정원장', '김미영', ''],
+  ['MARS 얼라이언스', '대웅제약', '대표이사', '이창재', '일정상 오찬 불가'],
+  ['MARS 얼라이언스', '대웅제약', '상무', '조병하', ''],
+  ['MARS 얼라이언스', '현대차그룹', '(확인 중)', '(확인 중)', '참석자 확인 중'],
+  ['MARS 얼라이언스', '이노스페이스', '대표', '김수종', ''],
+  ['기타', '한국군사문제연구원', '원장', '이재헌', ''],
+];
+
+const SPEECH_DEFAULT = { '정명근': '개회사', '이계철': '환영사', '김종민': '축사', '하정우': '축사' };
+const SPEECH_TYPES = ['개회사', '환영사', '축사', '격려사', '기념사', '인사말'];
+
+const makeSeed = () => SEED.map((r, i) => ({
+  id: i + 1,
+  category: r[0], organization: r[1], position: r[2], name: r[3], note: r[4],
+  grade: 'VVIP',
+  seat: `A-${String(i + 1).padStart(2, '0')}`,
+  status: '미도착',
+  arrivalTime: null, seatedTime: null,
+  intro: true,
+  speech: !!SPEECH_DEFAULT[r[3]],
+  speechType: SPEECH_DEFAULT[r[3]] || '축사',
+}));
+
+const seedSpeechOrder = (list) => ['정명근', '이계철', '김종민', '하정우'].map(n => list.find(a => a.name === n)?.id).filter(Boolean);
+
+const DEFAULT_STATE = () => {
+  const attendees = makeSeed();
+  return {
+    event: DEFAULT_EVENT,
+    program: DEFAULT_PROGRAM,
+    attendees,
+    speechOrder: seedSpeechOrder(attendees),
+    introOrder: attendees.map(a => a.id),
+    seatLayout: { A: { x: 20, y: 20, cols: 10 } },
+    adminPin: '1234',
+    nextId: attendees.length + 1,
+  };
+};
+
+const loadState = () => {
+  try {
+    const s = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
+    if (s && s.attendees) return { ...DEFAULT_STATE(), ...s };
+  } catch {}
+  return DEFAULT_STATE();
+};
+
+// ---------- 상수 ----------
+const STATUSES = ['미도착', '도착', '착석', '퇴장', '불참'];
+const PRESENT = ['도착', '착석'];
+const STATUS_STYLE = {
   '미도착': 'bg-slate-100 text-slate-600 border-slate-300',
-  '주차장 도착': 'bg-amber-50 text-amber-700 border-amber-300',
-  '로비 도착': 'bg-blue-50 text-blue-700 border-blue-300',
-  '대기실': 'bg-indigo-50 text-indigo-700 border-indigo-300',
-  '착석 완료': 'bg-emerald-50 text-emerald-700 border-emerald-300',
+  '도착': 'bg-amber-50 text-amber-700 border-amber-300',
+  '착석': 'bg-emerald-50 text-emerald-700 border-emerald-300',
   '퇴장': 'bg-slate-50 text-slate-500 border-slate-300',
   '불참': 'bg-rose-50 text-rose-700 border-rose-300',
 };
-
-const STATUS_DOT = {
-  '미도착': 'bg-slate-400',
-  '주차장 도착': 'bg-amber-500',
-  '로비 도착': 'bg-blue-500',
-  '대기실': 'bg-indigo-500',
-  '착석 완료': 'bg-emerald-500',
-  '퇴장': 'bg-slate-400',
-  '불참': 'bg-rose-500',
-};
-
+const STATUS_DOT = { '미도착': 'bg-slate-400', '도착': 'bg-amber-500', '착석': 'bg-emerald-500', '퇴장': 'bg-slate-300', '불참': 'bg-rose-500' };
+const GRADES = ['VVIP', 'VIP', '일반', '관계자'];
 const GRADE_STYLES = {
-  'VVIP': { bg: 'bg-rose-600', text: 'text-rose-600', light: 'bg-rose-50', border: 'border-rose-200', icon: Crown },
-  'VIP': { bg: 'bg-amber-500', text: 'text-amber-600', light: 'bg-amber-50', border: 'border-amber-200', icon: Star },
-  '일반': { bg: 'bg-slate-500', text: 'text-slate-600', light: 'bg-slate-50', border: 'border-slate-200', icon: UserCheck },
-  '관계자': { bg: 'bg-teal-600', text: 'text-teal-600', light: 'bg-teal-50', border: 'border-teal-200', icon: Briefcase },
+  'VVIP': { bg: 'bg-rose-600', light: 'bg-rose-50', border: 'border-rose-200' },
+  'VIP': { bg: 'bg-amber-500', light: 'bg-amber-50', border: 'border-amber-200' },
+  '일반': { bg: 'bg-slate-500', light: 'bg-slate-50', border: 'border-slate-200' },
+  '관계자': { bg: 'bg-sky-600', light: 'bg-sky-50', border: 'border-sky-200' },
 };
+const nowHM = () => { const d = new Date(); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+const honor = (a) => `${a.organization} ${a.name} ${a.position}님`;
 
-// ============ 카카오톡 공유 텍스트 생성 ============
-const generateShareText = (stats, attendees, type = 'dashboard') => {
-  const now = new Date();
-  const dateStr = `${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,'0')}.${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-  
-  if (type === 'dashboard') {
-    const vvipArrived = stats.byGrade.VVIP.filter(a => ['주차장 도착','로비 도착','대기실','착석 완료'].includes(a.status)).length;
-    return `[화성시 VIP 행사 실시간 현황]
-■ 기준시각 : ${dateStr}
+// =====================================================================
+// 메인
+// =====================================================================
+export default function App() {
+  const [state, setState] = useState(loadState);
+  const [isAdmin, setIsAdmin] = useState(() => sessionStorage.getItem('mars-admin') === '1');
+  const [view, setView] = useState('board');
+  const [loginOpen, setLoginOpen] = useState(false);
+  const [toast, setToast] = useState(null);
 
-▣ 전체 현황
- · 초청인원 : ${stats.total}명
- · 실 참석 : ${stats.arrived}명 (${stats.attendanceRate}%)
- · 착석완료 : ${stats.seated}명
- · 미도착 : ${stats.notArrived}명
+  useEffect(() => { try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch {} }, [state]);
+  useEffect(() => { if (toast) { const t = setTimeout(() => setToast(null), 2200); return () => clearTimeout(t); } }, [toast]);
 
-▣ VVIP 동향
- · 도착 : ${vvipArrived}/${stats.byGrade.VVIP.length}명
-${stats.byGrade.VVIP.map(a => ` · ${a.position} : ${a.status}`).join('\n')}
+  const { attendees, event, program, speechOrder, introOrder } = state;
+  const patch = (fn) => setState(s => ({ ...s, ...fn(s) }));
+  const notify = (msg) => setToast(msg);
 
-※ 본 정보는 행사 운영 목적의 비식별 요약본입니다.
-※ 화성시 빅데이터팀`;
-  }
-  
-  if (type === 'report') {
-    const noShow = attendees.filter(a => a.status === '미도착' || a.status === '불참').length;
-    return `[화성시 VIP 행사 결과보고 요약]
-■ 보고일시 : ${dateStr}
-
-▣ 참석 결과
- · 초청 : ${stats.total}명
- · 참석 : ${stats.arrived}명 (${stats.attendanceRate}%)
- · 착석 : ${stats.seated}명
- · 불참·미도착 : ${noShow}명
-
-▣ 등급별 참석률
-${Object.entries(stats.byGrade).map(([g, list]) => {
-  const arr = list.filter(a => ['주차장 도착','로비 도착','대기실','착석 완료'].includes(a.status)).length;
-  const rate = list.length > 0 ? ((arr/list.length)*100).toFixed(0) : 0;
-  return ` · ${g} : ${arr}/${list.length}명 (${rate}%)`;
-}).join('\n')}
-
-▣ 특이사항
- · 목표 참석률 90% 대비 ${(stats.attendanceRate - 90).toFixed(1)}%p
- · 사후 확인대상 : ${noShow}명
-
-※ 화성시 빅데이터팀 자동생성 보고서`;
-  }
-  
-  return '';
-};
-
-// ============ 클립보드 복사 공통 함수 (모든 환경 호환) ============
-const copyToClipboard = async (text) => {
-  // 1차: 최신 Clipboard API (HTTPS/localhost 환경)
-  if (navigator.clipboard && window.isSecureContext) {
-    try {
-      await navigator.clipboard.writeText(text);
-      return true;
-    } catch (e) {
-      // fallback으로 진행
-    }
-  }
-  
-  // 2차: 레거시 execCommand 방식 (iframe·HTTP 환경 대응)
-  try {
-    const textarea = document.createElement('textarea');
-    textarea.value = text;
-    textarea.style.position = 'fixed';
-    textarea.style.left = '-9999px';
-    textarea.style.top = '0';
-    textarea.setAttribute('readonly', '');
-    document.body.appendChild(textarea);
-    textarea.focus();
-    textarea.select();
-    textarea.setSelectionRange(0, text.length);
-    
-    const success = document.execCommand('copy');
-    document.body.removeChild(textarea);
-    return success;
-  } catch (e) {
-    return false;
-  }
-};
-
-// ============ 공유 모달 ============
-function ShareModal({ onClose, shareText, title }) {
-  const [copied, setCopied] = useState(false);
-  
-  const handleCopy = async () => {
-    const success = await copyToClipboard(shareText);
-    if (success) {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } else {
-      alert('자동 복사에 실패했습니다. 텍스트를 길게 눌러 직접 복사해 주세요.');
-    }
+  // ----- 내빈 상태 -----
+  const updateAttendee = (id, changes) => patch(s => ({ attendees: s.attendees.map(a => a.id === id ? { ...a, ...changes } : a) }));
+  const setStatus = (id, status) => {
+    const t = nowHM();
+    patch(s => ({
+      attendees: s.attendees.map(a => {
+        if (a.id !== id) return a;
+        const c = { status };
+        if (status === '도착') { c.arrivalTime = a.arrivalTime || t; c.seatedTime = null; }
+        if (status === '착석') { c.arrivalTime = a.arrivalTime || t; c.seatedTime = t; }
+        if (status === '미도착') { c.arrivalTime = null; c.seatedTime = null; }
+        return { ...a, ...c };
+      }),
+    }));
   };
-  
-  const openKakao = () => {
-    handleCopy();
-    // 카카오톡 앱 실행 (모바일에서만 동작)
-    setTimeout(() => {
-      window.location.href = 'kakaotalk://';
-    }, 300);
-  };
-  
-  return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-end md:items-center justify-center p-0 md:p-4" onClick={onClose}>
-      <div className="bg-white w-full md:max-w-lg rounded-t-2xl md:rounded-2xl p-5 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <div className="w-9 h-9 bg-yellow-400 rounded-lg flex items-center justify-center">
-              <MessageCircle className="w-5 h-5 text-slate-900" />
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-slate-900">카카오톡 공유</h3>
-              <p className="text-[11px] text-slate-500">{title}</p>
-            </div>
-          </div>
-          <button onClick={onClose} className="p-1 hover:bg-slate-100 rounded">
-            <X className="w-5 h-5 text-slate-500" />
-          </button>
-        </div>
+  const toggleSpeech = (id, on) => patch(s => ({
+    attendees: s.attendees.map(a => a.id === id ? { ...a, speech: on } : a),
+    speechOrder: on ? (s.speechOrder.includes(id) ? s.speechOrder : [...s.speechOrder, id]) : s.speechOrder.filter(x => x !== id),
+  }));
+  const toggleIntro = (id, on) => patch(s => ({
+    attendees: s.attendees.map(a => a.id === id ? { ...a, intro: on } : a),
+    introOrder: on ? (s.introOrder.includes(id) ? s.introOrder : [...s.introOrder, id]) : s.introOrder.filter(x => x !== id),
+  }));
+  const addAttendee = (data) => patch(s => {
+    const id = s.nextId;
+    const a = { id, category: '기타', organization: '', position: '', name: '', note: '', grade: 'VVIP', seat: '', status: '미도착', arrivalTime: null, seatedTime: null, intro: true, speech: false, speechType: '축사', ...data };
+    return { attendees: [...s.attendees, a], introOrder: [...s.introOrder, id], nextId: id + 1 };
+  });
+  const removeAttendee = (id) => patch(s => ({
+    attendees: s.attendees.filter(a => a.id !== id),
+    speechOrder: s.speechOrder.filter(x => x !== id),
+    introOrder: s.introOrder.filter(x => x !== id),
+  }));
 
-        {/* 공유 텍스트 미리보기 */}
-        <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 mb-3 max-h-64 overflow-y-auto">
-          <pre className="text-[11px] text-slate-700 whitespace-pre-wrap font-sans leading-relaxed select-all cursor-text">{shareText}</pre>
-        </div>
-
-        {/* 액션 버튼 */}
-        <div className="grid grid-cols-2 gap-2 mb-3">
-          <button
-            onClick={handleCopy}
-            className="flex items-center justify-center gap-1.5 px-3 py-3 bg-slate-800 text-white rounded-lg text-xs font-medium hover:bg-slate-900 transition-colors"
-          >
-            {copied ? <><Check className="w-4 h-4" /> 복사됨</> : <><Copy className="w-4 h-4" /> 텍스트 복사</>}
-          </button>
-          <button
-            onClick={openKakao}
-            className="flex items-center justify-center gap-1.5 px-3 py-3 bg-yellow-400 text-slate-900 rounded-lg text-xs font-bold hover:bg-yellow-500 transition-colors"
-          >
-            <MessageCircle className="w-4 h-4" /> 카카오톡 열기
-          </button>
-        </div>
-
-        {/* 안내 */}
-        <div className="bg-amber-50 border border-amber-200 rounded p-2.5 text-[10px] text-amber-800 leading-relaxed">
-          <div className="font-bold mb-0.5">▣ 사용 안내</div>
-          <div>① [텍스트 복사] 클릭 → 카카오톡 채팅방에 붙여넣기</div>
-          <div>② [카카오톡 열기]는 모바일에서 자동 복사 후 앱 실행</div>
-          <div className="mt-1 pt-1 border-t border-amber-200 text-amber-700">
-            ※ 개인정보 보호를 위해 비식별 요약 정보만 공유됩니다.
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ============ 관리자 권한 정의 ============
-const ROLES = {
-  '총괄': { 
-    label: '총괄 관리자', 
-    desc: '전체 권한 (VVIP·전체 명단·통계·결과보고)', 
-    color: 'bg-rose-600', 
-    light: 'bg-rose-50 text-rose-700 border-rose-200',
-    icon: Crown,
-    permissions: ['VVIP', 'VIP', '일반', '관계자', '결과보고']
-  },
-  '의전팀': { 
-    label: '의전팀', 
-    desc: 'VVIP·VIP 의전 및 동선 관리', 
-    color: 'bg-amber-600', 
-    light: 'bg-amber-50 text-amber-700 border-amber-200',
-    icon: Star,
-    permissions: ['VVIP', 'VIP']
-  },
-  '현장담당': { 
-    label: '현장 담당자', 
-    desc: '체크인 및 좌석 안내 (전체 등급)', 
-    color: 'bg-blue-600', 
-    light: 'bg-blue-50 text-blue-700 border-blue-200',
-    icon: UserCheck,
-    permissions: ['VVIP', 'VIP', '일반', '관계자']
-  },
-  '참관': { 
-    label: '참관자', 
-    desc: '읽기전용 (통계·현황 조회만 가능)', 
-    color: 'bg-slate-500', 
-    light: 'bg-slate-50 text-slate-700 border-slate-200',
-    icon: Eye,
-    permissions: ['읽기전용']
-  },
-};
-
-// 8자리 토큰 생성 (대문자+숫자)
-const generateToken = () => {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  return Array.from({ length: 8 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
-};
-
-// 초기 관리자 샘플
-const initialManagers = [
-  { id: 1, name: '김의전', role: '총괄', phone: '010-1234-****', token: 'A3K9P2M7', status: 'active', addedAt: '13:00', addedBy: '시스템' },
-  { id: 2, name: '이수행', role: '의전팀', phone: '010-2345-****', token: 'B5N7Q4R8', status: 'active', addedAt: '13:05', addedBy: '김의전' },
-  { id: 3, name: '박비서', role: '현장담당', phone: '010-3456-****', token: 'C6T2W9X4', status: 'active', addedAt: '13:10', addedBy: '김의전' },
-];
-
-// ============ 관리자 추가 모달 ============
-function AddManagerModal({ onClose, onAdd }) {
-  const [name, setName] = useState('');
-  const [role, setRole] = useState('현장담당');
-  const [phone, setPhone] = useState('');
-  
-  const handleSubmit = () => {
-    if (!name.trim()) {
-      alert('성명을 입력해 주세요.');
-      return;
-    }
-    const newManager = {
-      id: Date.now(),
-      name: name.trim(),
-      role,
-      phone: phone.trim() || '미등록',
-      token: generateToken(),
-      status: 'active',
-      addedAt: new Date().toTimeString().slice(0, 5),
-      addedBy: '김의전',
-    };
-    onAdd(newManager);
-  };
-  
-  return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-end md:items-center justify-center p-0 md:p-4" onClick={onClose}>
-      <div className="bg-white w-full md:max-w-md rounded-t-2xl md:rounded-2xl p-5 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <div className="w-9 h-9 bg-slate-800 rounded-lg flex items-center justify-center">
-              <UserPlus className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-slate-900">행사 관리자 추가</h3>
-              <p className="text-[11px] text-slate-500">행사 진행 중 신규 담당자를 즉시 등록합니다.</p>
-            </div>
-          </div>
-          <button onClick={onClose} className="p-1 hover:bg-slate-100 rounded">
-            <X className="w-5 h-5 text-slate-500" />
-          </button>
-        </div>
-
-        <div className="space-y-3">
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">성명 <span className="text-rose-500">*</span></label>
-            <input
-              type="text"
-              value={name}
-              onChange={e => setName(e.target.value)}
-              placeholder="예: 홍길동"
-              className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-slate-800"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">연락처 (선택)</label>
-            <input
-              type="tel"
-              value={phone}
-              onChange={e => setPhone(e.target.value)}
-              placeholder="010-0000-0000"
-              className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-slate-800"
-            />
-            <p className="text-[10px] text-slate-500 mt-1">※ 카카오톡 초대 링크 발송 시 활용됩니다.</p>
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-2">권한 등급 <span className="text-rose-500">*</span></label>
-            <div className="space-y-1.5">
-              {Object.entries(ROLES).map(([key, r]) => {
-                const Icon = r.icon;
-                return (
-                  <label
-                    key={key}
-                    className={`flex items-start gap-2 p-2.5 border-2 rounded cursor-pointer transition-all ${
-                      role === key ? 'border-slate-800 bg-slate-50' : 'border-slate-200 hover:border-slate-300'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      checked={role === key}
-                      onChange={() => setRole(key)}
-                      className="mt-0.5"
-                    />
-                    <div className="flex-1">
-                      <div className="flex items-center gap-1.5">
-                        <Icon className="w-3.5 h-3.5 text-slate-700" />
-                        <span className="text-xs font-bold text-slate-900">{r.label}</span>
-                      </div>
-                      <div className="text-[10px] text-slate-500 mt-0.5">{r.desc}</div>
-                    </div>
-                  </label>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="bg-amber-50 border border-amber-200 rounded p-2.5 text-[10px] text-amber-800">
-            <div className="font-bold mb-0.5">▣ 자동 생성 정보</div>
-            <div>· 8자리 1회용 접속 토큰 자동 발급</div>
-            <div>· 행사 당일 24시간 후 자동 만료</div>
-            <div>· 카카오톡 공유용 초대 링크 즉시 생성</div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2 mt-4">
-          <button
-            onClick={onClose}
-            className="px-3 py-2.5 border border-slate-300 rounded text-xs font-medium text-slate-700 hover:bg-slate-50"
-          >
-            취소
-          </button>
-          <button
-            onClick={handleSubmit}
-            className="px-3 py-2.5 bg-slate-800 text-white rounded text-xs font-bold hover:bg-slate-900"
-          >
-            등록 + 초대링크 생성
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ============ 초대 링크 모달 (카카오톡 공유) ============
-function InviteLinkModal({ manager, onClose }) {
-  const [copiedLink, setCopiedLink] = useState(false);
-  const [copiedText, setCopiedText] = useState(false);
-  
-  // ※ 실제 운영 시 화성시 공식 도메인 사용 (예: https://hsvip.hscity.go.kr/invite)
-  // 시제품 단계에서는 현재 접속 환경 기반 URL 자동 생성
-  const baseUrl = typeof window !== 'undefined' 
-    ? `${window.location.origin}${window.location.pathname}#invite`
-    : '시제품 환경';
-  const inviteLink = `${baseUrl}/${manager.token}`;
-  const role = ROLES[manager.role];
-  
-  const inviteText = `[화성시 VIP 행사 운영시스템 초대]
-
-▣ ${manager.name}님을 행사 관리자로 초대합니다.
-
-· 권한 : ${role.label}
-· 토큰 : ${manager.token}
-· 유효 : 행사 당일 24시간
-
-▼ 접속 링크
-${inviteLink}
-
-※ 본 링크는 ${manager.name}님 전용이며, 외부 유출을 금합니다.
-※ [시제품 단계] 정식 배포 전까지 데모 환경 접속 링크입니다.
-※ 화성시 빅데이터팀`;
-  
-  const copyLink = async () => {
-    const success = await copyToClipboard(inviteLink);
-    if (success) {
-      setCopiedLink(true);
-      setTimeout(() => setCopiedLink(false), 2000);
-    } else {
-      alert('자동 복사에 실패했습니다. 링크를 길게 눌러 직접 복사해 주세요.');
-    }
-  };
-  
-  const copyFullText = async () => {
-    const success = await copyToClipboard(inviteText);
-    if (success) {
-      setCopiedText(true);
-      setTimeout(() => setCopiedText(false), 2000);
-    } else {
-      alert('자동 복사에 실패했습니다. 메시지를 길게 눌러 직접 복사해 주세요.');
-    }
-  };
-  
-  const openKakao = () => {
-    copyFullText();
-    setTimeout(() => { window.location.href = 'kakaotalk://'; }, 300);
-  };
-  
-  // QR 코드 (qr-server.com 무료 API 활용)
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(inviteLink)}`;
-  
-  return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-end md:items-center justify-center p-0 md:p-4" onClick={onClose}>
-      <div className="bg-white w-full md:max-w-lg rounded-t-2xl md:rounded-2xl p-5 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <div className="w-9 h-9 bg-emerald-500 rounded-lg flex items-center justify-center">
-              <Link2 className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-slate-900">초대 링크 발급 완료</h3>
-              <p className="text-[11px] text-slate-500">{manager.name}님을 카카오톡으로 초대하세요.</p>
-            </div>
-          </div>
-          <button onClick={onClose} className="p-1 hover:bg-slate-100 rounded">
-            <X className="w-5 h-5 text-slate-500" />
-          </button>
-        </div>
-
-        {/* 관리자 정보 카드 */}
-        <div className="bg-gradient-to-br from-slate-800 to-slate-900 text-white rounded-lg p-4 mb-4">
-          <div className="flex items-center justify-between mb-2">
-            <span className={`px-2 py-0.5 rounded text-[10px] font-bold text-white ${role.color}`}>
-              {role.label}
-            </span>
-            <span className="text-[10px] text-slate-300">발급: {manager.addedAt}</span>
-          </div>
-          <div className="text-lg font-bold">{manager.name}</div>
-          <div className="text-xs text-slate-300 mb-3">{manager.phone}</div>
-          <div className="bg-white/10 backdrop-blur-sm rounded p-2 font-mono text-center tracking-widest text-base font-bold">
-            {manager.token}
-          </div>
-          <div className="text-[10px] text-slate-300 text-center mt-1">접속 토큰 (8자리)</div>
-        </div>
-
-        {/* QR + 링크 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
-          <div className="bg-white border-2 border-slate-200 rounded-lg p-3 flex flex-col items-center justify-center">
-            <img src={qrUrl} alt="QR" className="w-32 h-32 mb-2" />
-            <div className="text-[10px] text-slate-500 flex items-center gap-1">
-              <QrCode className="w-3 h-3" /> QR코드 스캔 접속
-            </div>
-          </div>
-          <div className="space-y-2">
-            <div>
-              <label className="block text-[10px] font-bold text-slate-600 mb-1">접속 링크 (클릭하여 복사)</label>
-              <div 
-                onClick={copyLink}
-                className="bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded p-2 text-[10px] font-mono text-slate-700 break-all cursor-pointer select-all transition-colors"
-              >
-                {inviteLink}
-              </div>
-            </div>
-            <button
-              onClick={copyLink}
-              className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded text-xs font-medium"
-            >
-              {copiedLink ? <><Check className="w-3.5 h-3.5" /> 링크 복사됨</> : <><Copy className="w-3.5 h-3.5" /> 링크만 복사</>}
-            </button>
-            <div className="bg-blue-50 border border-blue-200 rounded p-2 text-[10px] text-blue-800">
-              <div className="font-bold">권한 범위</div>
-              <div>{role.permissions.join(' · ')}</div>
-            </div>
-          </div>
-        </div>
-
-        {/* 카카오톡 메시지 미리보기 */}
-        <div className="mb-3">
-          <label className="block text-[10px] font-bold text-slate-600 mb-1 flex items-center gap-1">
-            <MessageCircle className="w-3 h-3" /> 카카오톡 발송 메시지 (미리보기)
-          </label>
-          <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-3 max-h-40 overflow-y-auto">
-            <pre className="text-[11px] text-slate-800 whitespace-pre-wrap font-sans leading-relaxed select-all cursor-text">{inviteText}</pre>
-          </div>
-        </div>
-
-        {/* 액션 버튼 */}
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            onClick={copyFullText}
-            className="flex items-center justify-center gap-1.5 px-3 py-3 bg-slate-800 text-white rounded-lg text-xs font-medium hover:bg-slate-900"
-          >
-            {copiedText ? <><Check className="w-4 h-4" /> 복사됨</> : <><Copy className="w-4 h-4" /> 메시지 복사</>}
-          </button>
-          <button
-            onClick={openKakao}
-            className="flex items-center justify-center gap-1.5 px-3 py-3 bg-yellow-400 text-slate-900 rounded-lg text-xs font-bold hover:bg-yellow-500"
-          >
-            <MessageCircle className="w-4 h-4" /> 카카오톡 열기
-          </button>
-        </div>
-
-        <div className="mt-3 text-[10px] text-slate-500 leading-relaxed">
-          ※ 초대 링크는 1회용이며, 24시간 후 자동 만료됩니다.<br/>
-          ※ 외부 유출 시 즉시 [관리자] 화면에서 권한을 회수할 수 있습니다.
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ============ 메인 컴포넌트 ============
-export default function VIPEventManagementApp() {
-  const [attendees, setAttendees] = useState(generateSampleData());
-  const [activeView, setActiveView] = useState('dashboard');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [gradeFilter, setGradeFilter] = useState('전체');
-  const [statusFilter, setStatusFilter] = useState('전체');
-  const [selectedAttendee, setSelectedAttendee] = useState(null);
-  const [shareModal, setShareModal] = useState(null); // {type, title}
-  const [showPlatformShare, setShowPlatformShare] = useState(false);
-  const [managers, setManagers] = useState(initialManagers);
-  const [showAddManager, setShowAddManager] = useState(false);
-  const [inviteLinkModal, setInviteLinkModal] = useState(null); // manager object
-  
-  const handleAddManager = (newManager) => {
-    setManagers(prev => [...prev, newManager]);
-    setShowAddManager(false);
-    setInviteLinkModal(newManager); // 등록 직후 초대링크 모달 자동 표시
-  };
-  
-  const handleRevokeManager = (id) => {
-    if (window.confirm('해당 관리자의 권한을 회수하시겠습니까?')) {
-      setManagers(prev => prev.map(m => m.id === id ? { ...m, status: 'revoked' } : m));
-    }
-  };
-
-  // 필터링
-  const filteredAttendees = useMemo(() => {
-    return attendees.filter(a => {
-      const matchSearch = !searchQuery || 
-        a.name.includes(searchQuery) || 
-        a.organization.includes(searchQuery) ||
-        a.position.includes(searchQuery) ||
-        a.vehicle.includes(searchQuery);
-      const matchGrade = gradeFilter === '전체' || a.grade === gradeFilter;
-      const matchStatus = statusFilter === '전체' || a.status === statusFilter;
-      return matchSearch && matchGrade && matchStatus;
-    });
-  }, [attendees, searchQuery, gradeFilter, statusFilter]);
-
-  // 통계
   const stats = useMemo(() => {
     const total = attendees.length;
-    const seated = attendees.filter(a => a.status === '착석 완료').length;
-    const arrived = attendees.filter(a => ['주차장 도착', '로비 도착', '대기실', '착석 완료'].includes(a.status)).length;
-    const notArrived = attendees.filter(a => a.status === '미도착').length;
-    const absent = attendees.filter(a => a.status === '불참').length;
-    
-    const byGrade = {
-      VVIP: attendees.filter(a => a.grade === 'VVIP'),
-      VIP: attendees.filter(a => a.grade === 'VIP'),
-      '일반': attendees.filter(a => a.grade === '일반'),
-      '관계자': attendees.filter(a => a.grade === '관계자'),
-    };
-    
-    const byStatus = STATUSES.reduce((acc, s) => {
-      acc[s] = attendees.filter(a => a.status === s).length;
-      return acc;
-    }, {});
-    
-    return { total, seated, arrived, notArrived, absent, byGrade, byStatus, attendanceRate: ((arrived / total) * 100).toFixed(1) };
+    const by = st => attendees.filter(a => a.status === st).length;
+    const present = attendees.filter(a => PRESENT.includes(a.status)).length;
+    const speakers = attendees.filter(a => a.speech);
+    return { total, present, arrived: by('도착'), seated: by('착석'), notArrived: by('미도착'), absent: by('불참'), left: by('퇴장'),
+      speakers: speakers.length, speakersPresent: speakers.filter(a => PRESENT.includes(a.status)).length,
+      rate: total ? Math.round(present / total * 100) : 0 };
   }, [attendees]);
 
-  // VVIP 도착 알림
-  const vvipAlerts = useMemo(() => {
-    return attendees.filter(a => 
-      a.grade === 'VVIP' && 
-      ['주차장 도착', '로비 도착', '대기실', '착석 완료'].includes(a.status)
-    );
-  }, [attendees]);
-
-  const updateStatus = (id, newStatus) => {
-    setAttendees(prev => prev.map(a => 
-      a.id === id 
-        ? { ...a, status: newStatus, arrivalTime: a.arrivalTime || new Date().toTimeString().slice(0,5) }
-        : a
-    ));
+  const login = (pin) => {
+    if (pin === state.adminPin) { setIsAdmin(true); sessionStorage.setItem('mars-admin', '1'); setLoginOpen(false); notify('관리자 모드로 전환되었습니다'); return true; }
+    return false;
   };
+  const logout = () => { setIsAdmin(false); sessionStorage.removeItem('mars-admin'); if (['manage', 'settings'].includes(view)) setView('board'); notify('조회 모드로 전환되었습니다'); };
+
+  const tabs = [
+    { id: 'board', label: '현황판', icon: BarChart3 },
+    { id: 'speech', label: '인사말씀·소개 순서', icon: Mic2 },
+    { id: 'seat', label: '좌석 현황', icon: MapPin },
+    { id: 'report', label: '결과 요약', icon: FileText },
+    ...(isAdmin ? [{ id: 'manage', label: '내빈 관리', icon: Users }, { id: 'settings', label: '설정', icon: Settings }] : []),
+  ];
 
   return (
-    <div className="min-h-screen bg-slate-50" style={{ fontFamily: "'Noto Sans KR', system-ui, sans-serif" }}>
-      {/* 상단 헤더 */}
-      <header className="bg-white border-b-2 border-slate-800 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-slate-800 rounded flex items-center justify-center">
-                <Building2 className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h1 className="text-base md:text-lg font-bold text-slate-900 flex items-center gap-1.5">
-                  공공행사 VIP 실시간 상황관리 플랫폼
-                  <span className="text-[9px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-bold border border-amber-300">시제품</span>
-                </h1>
-                <p className="text-xs text-slate-500">화성시 · 2026년 정기행사 운영시스템</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setShowPlatformShare(true)}
-                className="flex items-center gap-1 px-2.5 py-1.5 bg-yellow-400 hover:bg-yellow-500 text-slate-900 rounded text-[11px] font-bold transition-colors shadow-sm"
-                title="플랫폼을 카카오톡으로 공유"
-              >
-                <Share2 className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">공유</span>
-              </button>
-              <div className="hidden md:flex items-center gap-4 text-xs">
-                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 border border-emerald-200 rounded">
-                  <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
-                  <span className="text-emerald-700 font-medium">실시간 운영 중</span>
-                </div>
-                <span className="text-slate-500">담당: 빅데이터팀</span>
-              </div>
-            </div>
+    <div className="min-h-screen bg-slate-50 text-slate-900">
+      {/* 머리글 */}
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-3 py-2 flex items-center gap-3">
+          <div className="w-8 h-8 rounded bg-slate-900 text-white flex items-center justify-center shrink-0"><Crown className="w-4 h-4" /></div>
+          <div className="min-w-0">
+            <div className="font-bold text-sm md:text-base truncate">{event.name} <span className="text-slate-500 font-normal">내빈 운영</span></div>
+            <div className="text-[11px] text-slate-500 truncate">{event.date} · {event.place} · {event.host}</div>
+          </div>
+          <div className="ml-auto flex items-center gap-2 shrink-0">
+            <span className={`hidden sm:inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded border ${isAdmin ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+              {isAdmin ? <Unlock className="w-3 h-3" /> : <Eye className="w-3 h-3" />}{isAdmin ? '관리자 모드' : '조회 모드'}
+            </span>
+            {isAdmin
+              ? <button onClick={logout} className="text-xs px-2.5 py-1.5 rounded bg-slate-800 text-white hover:bg-slate-700 flex items-center gap-1"><Lock className="w-3 h-3" />조회 모드로</button>
+              : <button onClick={() => setLoginOpen(true)} className="text-xs px-2.5 py-1.5 rounded bg-rose-600 text-white hover:bg-rose-700 flex items-center gap-1"><LogIn className="w-3 h-3" />관리자</button>}
           </div>
         </div>
-
-        {/* 탭 네비게이션 */}
-        <div className="max-w-7xl mx-auto px-4 border-t border-slate-200">
-          <div className="flex gap-1 overflow-x-auto">
-            {[
-              { id: 'dashboard', label: '관리자 대시보드', icon: BarChart3 },
-              { id: 'mobile', label: '모바일 체크인', icon: Smartphone },
-              { id: 'vvip', label: 'VVIP 현황판', icon: Crown },
-              { id: 'seat', label: '좌석 현황', icon: MapPin },
-              { id: 'report', label: '결과보고', icon: FileText },
-              { id: 'managers', label: '운영자 관리', icon: Shield },
-              { id: 'upload', label: '엑셀 업로드', icon: Upload },
-            ].map(tab => {
-              const Icon = tab.icon;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveView(tab.id)}
-                  className={`flex items-center gap-1.5 px-3 py-2.5 text-xs md:text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
-                    activeView === tab.id 
-                      ? 'border-slate-800 text-slate-900' 
-                      : 'border-transparent text-slate-500 hover:text-slate-700'
-                  }`}
-                >
-                  <Icon className="w-4 h-4" />
-                  {tab.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
+        <nav className="max-w-7xl mx-auto px-3 flex gap-1 overflow-x-auto">
+          {tabs.map(t => (
+            <button key={t.id} onClick={() => setView(t.id)}
+              className={`flex items-center gap-1.5 px-3 py-2 text-xs md:text-sm whitespace-nowrap border-b-2 -mb-px ${view === t.id ? 'border-slate-900 text-slate-900 font-semibold' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
+              <t.icon className="w-3.5 h-3.5" />{t.label}
+            </button>
+          ))}
+        </nav>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-6">
-        {activeView === 'dashboard' && <DashboardView stats={stats} vvipAlerts={vvipAlerts} attendees={attendees} updateStatus={updateStatus} onShare={() => setShareModal({type: 'dashboard', title: '실시간 현황 요약'})} />}
-        {activeView === 'mobile' && <MobileCheckinView 
-          attendees={filteredAttendees} 
-          updateStatus={updateStatus}
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          gradeFilter={gradeFilter}
-          setGradeFilter={setGradeFilter}
-          statusFilter={statusFilter}
-          setStatusFilter={setStatusFilter}
-          setSelectedAttendee={setSelectedAttendee}
-        />}
-        {activeView === 'vvip' && <VVIPView attendees={attendees.filter(a => a.grade === 'VVIP')} updateStatus={updateStatus} />}
-        {activeView === 'seat' && <SeatView attendees={attendees} />}
-        {activeView === 'report' && <ReportView stats={stats} attendees={attendees} onShare={() => setShareModal({type: 'report', title: '결과보고 요약'})} />}
-        {activeView === 'managers' && <ManagersView 
-          managers={managers} 
-          onAdd={() => setShowAddManager(true)}
-          onShowInvite={(m) => setInviteLinkModal(m)}
-          onRevoke={handleRevokeManager}
-        />}
-        {activeView === 'upload' && <UploadView />}
+      <main className="max-w-7xl mx-auto p-3 md:p-4">
+        {view === 'board' && <BoardView attendees={attendees} stats={stats} program={program} isAdmin={isAdmin} setStatus={setStatus} toggleSpeech={toggleSpeech} toggleIntro={toggleIntro} />}
+        {view === 'speech' && <SpeechView attendees={attendees} speechOrder={speechOrder} introOrder={introOrder} isAdmin={isAdmin}
+          setSpeechOrder={o => patch(() => ({ speechOrder: o }))} setIntroOrder={o => patch(() => ({ introOrder: o }))}
+          updateAttendee={updateAttendee} toggleSpeech={toggleSpeech} toggleIntro={toggleIntro} notify={notify} />}
+        {view === 'seat' && <SeatView attendees={attendees} layout={state.seatLayout} setLayout={l => patch(s => ({ seatLayout: typeof l === 'function' ? l(s.seatLayout) : l }))} isAdmin={isAdmin} setStatus={setStatus} />}
+        {view === 'report' && <ReportView stats={stats} attendees={attendees} event={event} speechOrder={speechOrder} notify={notify} />}
+        {view === 'manage' && isAdmin && <ManageView attendees={attendees} updateAttendee={updateAttendee} addAttendee={addAttendee} removeAttendee={removeAttendee} setStatus={setStatus} toggleSpeech={toggleSpeech} toggleIntro={toggleIntro} notify={notify} patch={patch} />}
+        {view === 'settings' && isAdmin && <SettingsView state={state} patch={patch} setState={setState} notify={notify} />}
       </main>
 
-      {/* 상세 모달 */}
-      {selectedAttendee && (
-        <DetailModal attendee={selectedAttendee} onClose={() => setSelectedAttendee(null)} updateStatus={(id, status) => { updateStatus(id, status); setSelectedAttendee(null); }} />
-      )}
-
-      {/* 카카오톡 공유 모달 */}
-      {shareModal && (
-        <ShareModal 
-          onClose={() => setShareModal(null)} 
-          shareText={generateShareText(stats, attendees, shareModal.type)}
-          title={shareModal.title}
-        />
-      )}
-
-      {/* 관리자 추가 모달 */}
-      {showAddManager && (
-        <AddManagerModal onClose={() => setShowAddManager(false)} onAdd={handleAddManager} />
-      )}
-
-      {/* 초대 링크 모달 */}
-      {inviteLinkModal && (
-        <InviteLinkModal manager={inviteLinkModal} onClose={() => setInviteLinkModal(null)} />
-      )}
-
-      {/* 플랫폼 공유 모달 */}
-      {showPlatformShare && (
-        <PlatformShareModal onClose={() => setShowPlatformShare(false)} />
-      )}
-
-      <footer className="border-t border-slate-200 bg-white mt-12">
-        <div className="max-w-7xl mx-auto px-4 py-4 text-xs text-slate-500 flex flex-wrap items-center justify-between gap-2">
-          <span>© 2026 화성시 빅데이터팀 · AI·데이터 기반 행정혁신</span>
-          <span>v1.0 시제품 (Prototype)</span>
-        </div>
+      <footer className="max-w-7xl mx-auto px-3 py-2 text-[10px] text-slate-400 flex justify-between">
+        <span>화성특례시 AI스마트전략실 · 내빈 소개·인사말씀 운영 플랫폼 v{APP_VERSION}</span>
+        <span>자료는 이 브라우저에만 저장됩니다</span>
       </footer>
+
+      {loginOpen && <LoginModal onClose={() => setLoginOpen(false)} onLogin={login} />}
+      {toast && <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-xs px-4 py-2 rounded-full shadow-lg z-50">{toast}</div>}
     </div>
   );
 }
 
-// ============ 대시보드 화면 ============
-function DashboardView({ stats, vvipAlerts, attendees, updateStatus, onShare }) {
+// =====================================================================
+// 공통 부품
+// =====================================================================
+function StatusChip({ status, small }) {
+  return <span className={`inline-flex items-center gap-1 rounded border ${small ? 'px-1.5 py-0 text-[10px]' : 'px-2 py-0.5 text-xs'} ${STATUS_STYLE[status]}`}><span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[status]}`} />{status}</span>;
+}
+
+function StatusButtons({ a, setStatus, compact }) {
+  const btn = (st, cls) => (
+    <button key={st} onClick={() => setStatus(a.id, st)} disabled={a.status === st}
+      className={`${compact ? 'px-2 py-1 text-[11px]' : 'px-3 py-1.5 text-xs'} rounded font-semibold border disabled:opacity-40 ${cls}`}>{st}</button>
+  );
   return (
-    <div className="space-y-6">
-      {/* 상단 액션 바 */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-base font-bold text-slate-900">실시간 운영 현황</h2>
-          <p className="text-xs text-slate-500">전체 행사 진행 상황을 한눈에 확인하세요.</p>
-        </div>
-        <button
-          onClick={onShare}
-          className="flex items-center gap-1.5 px-3 py-2 bg-yellow-400 hover:bg-yellow-500 text-slate-900 rounded-lg text-xs font-bold transition-colors shadow-sm"
-        >
-          <MessageCircle className="w-4 h-4" />
-          카카오톡 공유
-        </button>
+    <div className="flex flex-wrap gap-1">
+      {btn('도착', 'bg-amber-500 text-white border-amber-500 hover:bg-amber-600')}
+      {btn('착석', 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700')}
+      {btn('퇴장', 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50')}
+      {btn('불참', 'bg-white text-rose-600 border-rose-300 hover:bg-rose-50')}
+      <button onClick={() => setStatus(a.id, '미도착')} title="초기화" className={`${compact ? 'px-1.5 py-1' : 'px-2 py-1.5'} rounded border border-slate-200 text-slate-400 hover:bg-slate-50`}><RotateCcw className="w-3 h-3" /></button>
+    </div>
+  );
+}
+
+function LoginModal({ onClose, onLogin }) {
+  const [pin, setPin] = useState('');
+  const [err, setErr] = useState(false);
+  const submit = (e) => { e.preventDefault(); if (!onLogin(pin)) { setErr(true); setPin(''); } };
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <form onSubmit={submit} onClick={e => e.stopPropagation()} className="bg-white rounded-lg p-5 w-full max-w-xs shadow-xl">
+        <div className="flex items-center gap-2 mb-3"><Lock className="w-4 h-4 text-rose-600" /><h3 className="font-bold text-sm">관리자 모드 입장</h3><button type="button" onClick={onClose} className="ml-auto text-slate-400"><X className="w-4 h-4" /></button></div>
+        <input autoFocus type="password" inputMode="numeric" value={pin} onChange={e => { setPin(e.target.value); setErr(false); }} placeholder="비밀번호" className="w-full border border-slate-300 rounded px-3 py-2 text-sm mb-2 text-center tracking-widest" />
+        {err && <div className="text-xs text-rose-600 mb-2">비밀번호가 맞지 않습니다</div>}
+        <button className="w-full bg-rose-600 text-white rounded py-2 text-sm font-semibold hover:bg-rose-700">입장</button>
+        <p className="text-[10px] text-slate-400 mt-2">초기 비밀번호 1234 · 설정에서 변경하세요</p>
+      </form>
+    </div>
+  );
+}
+
+// =====================================================================
+// 현황판
+// =====================================================================
+function BoardView({ attendees, stats, program, isAdmin, setStatus, toggleSpeech, toggleIntro }) {
+  const [q, setQ] = useState('');
+  const [filter, setFilter] = useState('전체');
+  const [clock, setClock] = useState(nowHM());
+  useEffect(() => { const t = setInterval(() => setClock(nowHM()), 15000); return () => clearInterval(t); }, []);
+
+  const present = attendees.filter(a => PRESENT.includes(a.status)).sort((a, b) => (b.seatedTime || b.arrivalTime || '').localeCompare(a.seatedTime || a.arrivalTime || ''));
+  const categories = [...new Set(attendees.map(a => a.category))];
+  const visible = attendees.filter(a => (filter === '전체' || a.status === filter || (filter === '인사말씀' && a.speech)) && (!q || `${a.name}${a.organization}${a.position}`.includes(q)));
+  const current = program.findIndex((p, i) => { const n = program[i + 1]; return clock >= p.time && (!n || clock < n.time); });
+
+  return (
+    <div className="space-y-3">
+      {/* 핵심 지표 */}
+      <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
+        <KPI label="초청 내빈" value={stats.total} />
+        <KPI label="참석(도착+착석)" value={stats.present} sub={`${stats.rate}%`} tone="emerald" />
+        <KPI label="착석 완료" value={stats.seated} tone="blue" />
+        <KPI label="미도착" value={stats.notArrived} tone="amber" />
+        <KPI label="불참·퇴장" value={stats.absent + stats.left} tone="rose" />
+        <KPI label="인사말씀 참석" value={`${stats.speakersPresent}/${stats.speakers}`} tone="violet" />
       </div>
 
-      {/* VVIP 도착 알림 (소형 칩 형태) */}
-      {vvipAlerts.length > 0 && (
+      {/* 도착 알림 (소형 칩) */}
+      {present.length > 0 && (
         <div className="bg-gradient-to-r from-rose-600 to-rose-700 rounded-lg px-3 py-2 text-white shadow">
           <div className="flex flex-wrap items-center gap-1.5">
-            <div className="flex items-center gap-1.5 mr-1 shrink-0">
-              <Bell className="w-3.5 h-3.5 animate-pulse" />
-              <span className="text-xs font-bold">VVIP 도착</span>
-              <span className="text-[10px] bg-white/25 px-1.5 py-0.5 rounded">{vvipAlerts.length}/{stats.byGrade.VVIP.length}</span>
-            </div>
-            {vvipAlerts.map(a => {
-              const dot = a.status === '착석 완료' ? 'bg-emerald-300' : a.status === '대기실' ? 'bg-indigo-200' : a.status === '로비 도착' ? 'bg-sky-200' : 'bg-amber-200';
-              return (
-                <span
-                  key={a.id}
-                  title={`${a.name} · ${a.organization} · ${a.status}${a.arrivalTime ? ' · ' + a.arrivalTime : ''}`}
-                  className="inline-flex items-center gap-1 bg-white/15 border border-white/20 rounded px-1.5 py-0.5 text-[11px] leading-4 whitespace-nowrap"
-                >
-                  <span className={`w-1.5 h-1.5 rounded-full ${dot}`} />
-                  <span className="font-semibold">{a.name}</span>
-                  <span className="text-white/75">{a.status}</span>
-                  {a.arrivalTime && <span className="text-white/60 font-mono">{a.arrivalTime}</span>}
-                </span>
-              );
-            })}
+            <div className="flex items-center gap-1.5 mr-1 shrink-0"><Bell className="w-3.5 h-3.5 animate-pulse" /><span className="text-xs font-bold">도착 내빈</span><span className="text-[10px] bg-white/25 px-1.5 py-0.5 rounded">{present.length}/{stats.total}</span></div>
+            {present.map(a => (
+              <span key={a.id} title={`${honor(a)} · ${a.status}`} className="inline-flex items-center gap-1 bg-white/15 border border-white/20 rounded px-1.5 py-0.5 text-[11px] leading-4 whitespace-nowrap">
+                <span className={`w-1.5 h-1.5 rounded-full ${a.status === '착석' ? 'bg-emerald-300' : 'bg-amber-200'}`} />
+                <span className="font-semibold">{a.name}</span><span className="text-white/75">{a.position}</span>
+                {a.speech && <Mic2 className="w-2.5 h-2.5 text-amber-200" />}
+                <span className="text-white/60 font-mono">{a.seatedTime || a.arrivalTime}</span>
+              </span>
+            ))}
           </div>
         </div>
       )}
 
-      {/* 핵심 KPI */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <KPICard title="전체 참석자" value={stats.total} unit="명" icon={Users} color="slate" />
-        <KPICard title="참석률" value={stats.attendanceRate} unit="%" icon={TrendingUp} color="emerald" highlight />
-        <KPICard title="착석 완료" value={stats.seated} unit="명" icon={CheckCircle2} color="blue" />
-        <KPICard title="미도착" value={stats.notArrived} unit="명" icon={AlertCircle} color="amber" />
-      </div>
-
-      {/* 등급별 현황 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="bg-white border border-slate-200 rounded-lg p-5">
-          <h3 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
-            <Users className="w-4 h-4" /> 등급별 참석 현황
-          </h3>
-          <div className="space-y-3">
-            {Object.entries(stats.byGrade).map(([grade, list]) => {
-              const arrived = list.filter(a => ['주차장 도착', '로비 도착', '대기실', '착석 완료'].includes(a.status)).length;
-              const rate = list.length > 0 ? (arrived / list.length) * 100 : 0;
-              const style = GRADE_STYLES[grade];
-              const Icon = style.icon;
-              return (
-                <div key={grade}>
-                  <div className="flex items-center justify-between text-xs mb-1.5">
-                    <div className="flex items-center gap-1.5">
-                      <Icon className={`w-3.5 h-3.5 ${style.text}`} />
-                      <span className="font-semibold text-slate-700">{grade}</span>
-                      <span className="text-slate-500">{arrived} / {list.length}명</span>
-                    </div>
-                    <span className={`font-bold ${style.text}`}>{rate.toFixed(0)}%</span>
-                  </div>
-                  <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                    <div 
-                      className={`h-full ${style.bg} transition-all duration-700`} 
-                      style={{ width: `${rate}%` }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="bg-white border border-slate-200 rounded-lg p-5">
-          <h3 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
-            <BarChart3 className="w-4 h-4" /> 상태별 분포
-          </h3>
-          <div className="space-y-2">
-            {STATUSES.map(status => {
-              const count = stats.byStatus[status] || 0;
-              const pct = stats.total > 0 ? (count / stats.total) * 100 : 0;
-              return (
-                <div key={status} className="flex items-center gap-3">
-                  <div className="flex items-center gap-2 w-24 shrink-0">
-                    <div className={`w-2 h-2 rounded-full ${STATUS_DOT[status]}`} />
-                    <span className="text-xs text-slate-700">{status}</span>
-                  </div>
-                  <div className="flex-1 h-5 bg-slate-50 rounded relative overflow-hidden">
-                    <div className="h-full bg-slate-700 transition-all duration-500" style={{ width: `${pct}%` }} />
-                    <span className="absolute inset-0 flex items-center justify-end pr-2 text-xs font-medium text-slate-700 mix-blend-difference filter invert">
-                      {count}명
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
-      {/* 최근 도착 */}
-      <div className="bg-white border border-slate-200 rounded-lg p-5">
-        <h3 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
-          <Clock className="w-4 h-4" /> 최근 상태 변경 (상위 10건)
-        </h3>
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="border-b border-slate-200 text-slate-500">
-                <th className="text-left py-2 px-2 font-medium">등급</th>
-                <th className="text-left py-2 px-2 font-medium">성명</th>
-                <th className="text-left py-2 px-2 font-medium hidden md:table-cell">소속</th>
-                <th className="text-left py-2 px-2 font-medium hidden md:table-cell">좌석</th>
-                <th className="text-left py-2 px-2 font-medium">현재 상태</th>
-                <th className="text-left py-2 px-2 font-medium">시각</th>
-              </tr>
-            </thead>
-            <tbody>
-              {attendees.filter(a => a.arrivalTime).slice(0, 10).map(a => {
-                const style = GRADE_STYLES[a.grade];
-                return (
-                  <tr key={a.id} className="border-b border-slate-100 hover:bg-slate-50">
-                    <td className="py-2 px-2">
-                      <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold text-white ${style.bg}`}>
-                        {a.grade}
-                      </span>
-                    </td>
-                    <td className="py-2 px-2 font-medium text-slate-900">{a.name}</td>
-                    <td className="py-2 px-2 text-slate-600 hidden md:table-cell">{a.organization}</td>
-                    <td className="py-2 px-2 text-slate-600 hidden md:table-cell font-mono">{a.seat}</td>
-                    <td className="py-2 px-2">
-                      <span className={`inline-block px-2 py-0.5 rounded border text-[10px] font-medium ${STATUS_COLORS[a.status]}`}>
-                        {a.status}
-                      </span>
-                    </td>
-                    <td className="py-2 px-2 text-slate-500 font-mono">{a.arrivalTime}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function KPICard({ title, value, unit, icon: Icon, color, highlight }) {
-  const colors = {
-    slate: 'border-slate-200',
-    emerald: 'border-emerald-300 bg-emerald-50',
-    blue: 'border-blue-200',
-    amber: 'border-amber-200',
-  };
-  const iconColors = {
-    slate: 'text-slate-500 bg-slate-100',
-    emerald: 'text-emerald-600 bg-emerald-100',
-    blue: 'text-blue-600 bg-blue-100',
-    amber: 'text-amber-600 bg-amber-100',
-  };
-  return (
-    <div className={`bg-white border-2 rounded-lg p-4 ${highlight ? colors[color] : 'border-slate-200'}`}>
-      <div className="flex items-start justify-between mb-2">
-        <span className="text-xs text-slate-500 font-medium">{title}</span>
-        <div className={`w-7 h-7 rounded flex items-center justify-center ${iconColors[color]}`}>
-          <Icon className="w-3.5 h-3.5" />
-        </div>
-      </div>
-      <div className="flex items-baseline gap-1">
-        <span className="text-2xl md:text-3xl font-bold text-slate-900">{value}</span>
-        <span className="text-xs text-slate-500">{unit}</span>
-      </div>
-    </div>
-  );
-}
-
-// ============ 모바일 체크인 화면 ============
-function MobileCheckinView({ attendees, updateStatus, searchQuery, setSearchQuery, gradeFilter, setGradeFilter, statusFilter, setStatusFilter, setSelectedAttendee }) {
-  return (
-    <div className="max-w-md mx-auto space-y-3">
-      <div className="bg-slate-800 text-white rounded-lg p-4">
-        <div className="flex items-center gap-2 mb-1">
-          <Smartphone className="w-4 h-4" />
-          <h2 className="font-bold text-sm">현장 담당자 체크인</h2>
-        </div>
-        <p className="text-xs text-slate-300">참석자를 검색하고 상태를 변경하세요.</p>
-      </div>
-
-      {/* 검색 */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-        <input
-          type="text"
-          placeholder="이름·소속·직위·차량번호 검색"
-          value={searchQuery}
-          onChange={e => setSearchQuery(e.target.value)}
-          className="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-800 focus:border-transparent"
-        />
-      </div>
-
-      {/* 필터 */}
-      <div className="flex gap-2 overflow-x-auto pb-1">
-        {['전체', 'VVIP', 'VIP', '일반', '관계자'].map(g => (
-          <button
-            key={g}
-            onClick={() => setGradeFilter(g)}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap border ${
-              gradeFilter === g 
-                ? 'bg-slate-800 text-white border-slate-800' 
-                : 'bg-white text-slate-700 border-slate-300'
-            }`}
-          >
-            {g}
-          </button>
-        ))}
-      </div>
-
-      <div className="flex gap-2 overflow-x-auto pb-1">
-        {['전체', ...STATUSES].map(s => (
-          <button
-            key={s}
-            onClick={() => setStatusFilter(s)}
-            className={`px-2.5 py-1 rounded text-[11px] font-medium whitespace-nowrap border ${
-              statusFilter === s 
-                ? 'bg-slate-700 text-white border-slate-700' 
-                : 'bg-white text-slate-600 border-slate-200'
-            }`}
-          >
-            {s}
-          </button>
-        ))}
-      </div>
-
-      <div className="text-xs text-slate-500 px-1">검색결과: <span className="font-bold text-slate-900">{attendees.length}명</span></div>
-
-      {/* 카드 목록 */}
-      <div className="space-y-2">
-        {attendees.slice(0, 30).map(a => {
-          const style = GRADE_STYLES[a.grade];
-          return (
-            <div
-              key={a.id}
-              onClick={() => setSelectedAttendee(a)}
-              className={`bg-white border rounded-lg p-3 cursor-pointer hover:shadow-md transition-shadow ${style.border}`}
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold text-white ${style.bg}`}>
-                      {a.grade}
-                    </span>
-                    <span className="font-semibold text-sm text-slate-900 truncate">{a.name}</span>
-                  </div>
-                  <div className="text-xs text-slate-600 truncate">{a.organization} · {a.position}</div>
-                  <div className="flex items-center gap-3 mt-1.5 text-[11px] text-slate-500">
-                    <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{a.seat}</span>
-                    <span className="flex items-center gap-1"><Car className="w-3 h-3" />{a.vehicle}</span>
-                  </div>
-                </div>
-                <div className="flex flex-col items-end gap-1">
-                  <span className={`px-2 py-1 rounded border text-[10px] font-medium ${STATUS_COLORS[a.status]}`}>
-                    {a.status}
-                  </span>
-                  <ChevronRight className="w-4 h-4 text-slate-400" />
-                </div>
-              </div>
+      {/* 식순 진행 */}
+      <div className="bg-white border border-slate-200 rounded-lg px-3 py-2">
+        <div className="flex items-center gap-2 mb-1.5"><Clock className="w-3.5 h-3.5 text-slate-500" /><span className="text-xs font-bold">식순 진행</span><span className="ml-auto text-[11px] font-mono text-slate-500">현재 {clock}</span></div>
+        <div className="flex gap-1 overflow-x-auto pb-1">
+          {program.map((p, i) => (
+            <div key={p.id} className={`shrink-0 rounded px-2 py-1 border text-[11px] ${i === current ? 'bg-slate-900 text-white border-slate-900' : i < current ? 'bg-slate-100 text-slate-400 border-slate-200 line-through' : 'bg-white text-slate-700 border-slate-200'}`}>
+              <span className="font-mono mr-1">{p.time}</span>{p.title}
             </div>
-          );
-        })}
-        {attendees.length > 30 && (
-          <div className="text-center text-xs text-slate-500 py-2">
-            상위 30명 표시 · 전체 {attendees.length}명 (검색을 활용해 주세요)
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ============ 상세 모달 ============
-function DetailModal({ attendee, onClose, updateStatus }) {
-  const style = GRADE_STYLES[attendee.grade];
-  return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-end md:items-center justify-center p-0 md:p-4" onClick={onClose}>
-      <div className="bg-white w-full md:max-w-md rounded-t-2xl md:rounded-2xl p-5 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-        <div className="flex items-start justify-between mb-4">
-          <div>
-            <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold text-white ${style.bg} mb-1.5`}>
-              {attendee.grade}
-            </span>
-            <h3 className="text-lg font-bold text-slate-900">{attendee.name}</h3>
-            <p className="text-sm text-slate-600">{attendee.organization} · {attendee.position}</p>
-          </div>
-          <button onClick={onClose} className="p-1 hover:bg-slate-100 rounded">
-            <X className="w-5 h-5 text-slate-500" />
-          </button>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3 mb-5 text-xs">
-          <InfoBlock label="좌석번호" value={attendee.seat} icon={MapPin} />
-          <InfoBlock label="차량번호" value={attendee.vehicle} icon={Car} />
-          <InfoBlock label="담당자" value={attendee.manager} icon={UserCheck} />
-          <InfoBlock label="도착시각" value={attendee.arrivalTime || '-'} icon={Clock} />
-        </div>
-
-        <div className="mb-2 text-xs font-bold text-slate-700">상태 변경</div>
-        <div className="grid grid-cols-2 gap-2">
-          {STATUSES.map(s => (
-            <button
-              key={s}
-              onClick={() => updateStatus(attendee.id, s)}
-              className={`px-3 py-2.5 rounded-lg text-xs font-medium border-2 transition-all ${
-                attendee.status === s 
-                  ? 'border-slate-800 bg-slate-800 text-white' 
-                  : `${STATUS_COLORS[s]} hover:scale-[1.02]`
-              }`}
-            >
-              <div className="flex items-center gap-1.5">
-                <div className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[s]} ${attendee.status === s ? 'ring-2 ring-white' : ''}`} />
-                {s}
-              </div>
-            </button>
           ))}
         </div>
       </div>
-    </div>
-  );
-}
 
-function InfoBlock({ label, value, icon: Icon }) {
-  return (
-    <div className="bg-slate-50 rounded p-2.5">
-      <div className="flex items-center gap-1 text-slate-500 mb-1">
-        <Icon className="w-3 h-3" />
-        <span className="text-[10px]">{label}</span>
-      </div>
-      <div className="font-semibold text-slate-900 text-sm font-mono">{value}</div>
-    </div>
-  );
-}
-
-// ============ VVIP 전용 현황판 ============
-function VVIPView({ attendees, updateStatus }) {
-  return (
-    <div className="space-y-4">
-      <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-lg p-5 text-white">
-        <div className="flex items-center gap-2 mb-1">
-          <Crown className="w-5 h-5 text-amber-400" />
-          <h2 className="font-bold">VVIP 전용 현황판</h2>
+      {/* 내빈 목록 */}
+      <div className="bg-white border border-slate-200 rounded-lg p-3">
+        <div className="flex flex-wrap items-center gap-2 mb-3">
+          <h2 className="text-sm font-bold flex items-center gap-1.5"><Users className="w-4 h-4" />내빈 현황</h2>
+          <input value={q} onChange={e => setQ(e.target.value)} placeholder="이름·소속 검색" className="border border-slate-300 rounded px-2 py-1 text-xs w-40" />
+          <div className="flex gap-1 flex-wrap">
+            {['전체', ...STATUSES, '인사말씀'].map(f => (
+              <button key={f} onClick={() => setFilter(f)} className={`px-2 py-1 rounded text-[11px] border ${filter === f ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-300'}`}>{f}</button>
+            ))}
+          </div>
+          {!isAdmin && <span className="ml-auto text-[10px] text-slate-400 flex items-center gap-1"><Eye className="w-3 h-3" />조회 전용 · 상태 변경은 관리자 모드에서</span>}
         </div>
-        <p className="text-xs text-slate-300">최고위급 참석자에 대한 실시간 의전 상태를 표시합니다.</p>
-      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {attendees.map(a => {
-          const stage = STATUSES.indexOf(a.status);
-          const isArrived = ['주차장 도착', '로비 도착', '대기실', '착석 완료'].includes(a.status);
+        {categories.map(cat => {
+          const list = visible.filter(a => a.category === cat);
+          if (!list.length) return null;
           return (
-            <div key={a.id} className="bg-white border-2 border-rose-200 rounded-lg p-4 shadow-sm">
-              <div className="flex items-start justify-between mb-3">
-                <div>
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <Crown className="w-4 h-4 text-rose-600" />
-                    <span className="text-[10px] font-bold text-rose-600 tracking-wider">VVIP</span>
+            <div key={cat} className="mb-3">
+              <div className="text-[11px] font-bold text-slate-500 mb-1 flex items-center gap-2">{cat}<span className="text-slate-400 font-normal">{list.filter(a => PRESENT.includes(a.status)).length}/{list.length}</span></div>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-1.5">
+                {list.map(a => (
+                  <div key={a.id} className={`border rounded px-2.5 py-2 flex flex-col gap-1.5 ${a.status === '착석' ? 'border-emerald-200 bg-emerald-50/40' : a.status === '도착' ? 'border-amber-200 bg-amber-50/40' : 'border-slate-200'}`}>
+                    <div className="flex items-start gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-bold truncate">{a.name} <span className="text-xs font-normal text-slate-600">{a.position}</span></div>
+                        <div className="text-[11px] text-slate-500 truncate">{a.organization}{a.note && <span className="text-slate-400"> · {a.note}</span>}</div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <StatusChip status={a.status} small />
+                        <div className="text-[10px] text-slate-400 font-mono mt-0.5">{a.seat}{a.arrivalTime && ` · ${a.arrivalTime}`}</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {isAdmin && <StatusButtons a={a} setStatus={setStatus} compact />}
+                      <label className={`flex items-center gap-1 text-[11px] ${a.speech ? 'text-violet-700 font-semibold' : 'text-slate-500'} ${isAdmin ? 'cursor-pointer' : ''}`}>
+                        <input type="checkbox" checked={a.speech} disabled={!isAdmin} onChange={e => toggleSpeech(a.id, e.target.checked)} className="accent-violet-600" />인사말씀{a.speech && `(${a.speechType})`}
+                      </label>
+                      <label className={`flex items-center gap-1 text-[11px] ${a.intro ? 'text-slate-700' : 'text-slate-400'} ${isAdmin ? 'cursor-pointer' : ''}`}>
+                        <input type="checkbox" checked={a.intro} disabled={!isAdmin} onChange={e => toggleIntro(a.id, e.target.checked)} className="accent-slate-700" />소개
+                      </label>
+                    </div>
                   </div>
-                  <h3 className="text-base font-bold text-slate-900">{a.name}</h3>
-                  <p className="text-xs text-slate-600">{a.organization}</p>
-                </div>
-                <span className={`px-2 py-1 rounded border text-[10px] font-bold ${STATUS_COLORS[a.status]}`}>
-                  {a.status}
-                </span>
-              </div>
-
-              {/* 동선 진행 표시 */}
-              <div className="bg-slate-50 rounded p-2.5 mb-3">
-                <div className="text-[10px] text-slate-500 mb-2">의전 동선 진행</div>
-                <div className="flex items-center gap-1">
-                  {['미도착', '주차장 도착', '로비 도착', '대기실', '착석 완료'].map((s, i) => (
-                    <React.Fragment key={s}>
-                      <div className={`flex-1 h-1.5 rounded-full ${stage >= i ? 'bg-rose-500' : 'bg-slate-200'}`} />
-                    </React.Fragment>
-                  ))}
-                </div>
-                <div className="flex justify-between mt-1 text-[9px] text-slate-500">
-                  <span>출발</span>
-                  <span>주차</span>
-                  <span>로비</span>
-                  <span>대기</span>
-                  <span>착석</span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-2 text-[10px] mb-3">
-                <div>
-                  <div className="text-slate-500">좌석</div>
-                  <div className="font-bold text-slate-900 font-mono">{a.seat}</div>
-                </div>
-                <div>
-                  <div className="text-slate-500">담당</div>
-                  <div className="font-bold text-slate-900">{a.manager}</div>
-                </div>
-                <div>
-                  <div className="text-slate-500">도착</div>
-                  <div className="font-bold text-slate-900 font-mono">{a.arrivalTime || '-'}</div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-1">
-                {['로비 도착', '대기실', '착석 완료'].map(s => (
-                  <button
-                    key={s}
-                    onClick={() => updateStatus(a.id, s)}
-                    className="px-2 py-1.5 text-[10px] font-medium border border-slate-300 rounded hover:bg-slate-800 hover:text-white hover:border-slate-800 transition-colors"
-                  >
-                    {s}
-                  </button>
                 ))}
               </div>
             </div>
           );
         })}
+        {!visible.length && <div className="text-xs text-slate-400 text-center py-6">해당하는 내빈이 없습니다</div>}
       </div>
     </div>
   );
 }
 
-// ============ 좌석 현황 (구역 블록 이동 가능) ============
-const SEAT_LAYOUT_KEY = 'vip-seat-layout-v1';
-const DEFAULT_LAYOUT = {
-  A: { x: 20,  y: 20,  cols: 10 },
-  B: { x: 20,  y: 200, cols: 10 },
-  C: { x: 20,  y: 380, cols: 10 },
-};
-const loadLayout = () => {
-  try {
-    const saved = JSON.parse(localStorage.getItem(SEAT_LAYOUT_KEY) || 'null');
-    return saved ? { ...DEFAULT_LAYOUT, ...saved } : DEFAULT_LAYOUT;
-  } catch { return DEFAULT_LAYOUT; }
-};
+function KPI({ label, value, sub, tone = 'slate' }) {
+  const tones = { slate: 'text-slate-900', emerald: 'text-emerald-600', blue: 'text-blue-600', amber: 'text-amber-600', rose: 'text-rose-600', violet: 'text-violet-600' };
+  return (
+    <div className="bg-white border border-slate-200 rounded-lg px-3 py-2">
+      <div className="text-[10px] text-slate-500">{label}</div>
+      <div className={`text-xl font-bold leading-tight ${tones[tone]}`}>{value}{sub && <span className="text-xs font-medium text-slate-400 ml-1">{sub}</span>}</div>
+    </div>
+  );
+}
 
-function SeatView({ attendees }) {
-  const sections = ['A', 'B', 'C'];
-  const [layout, setLayout] = useState(loadLayout);
-  const [dragging, setDragging] = useState(null); // { section, offX, offY }
+// =====================================================================
+// 순서 목록 (블록 끌어서 이동)
+// =====================================================================
+function OrderList({ ids, attendees, setOrder, editable, renderExtra, onRemove, presentOnly }) {
+  const [dragIdx, setDragIdx] = useState(null);
+  const [overIdx, setOverIdx] = useState(null);
+  const list = ids.map(id => attendees.find(a => a.id === id)).filter(Boolean).filter(a => !presentOnly || PRESENT.includes(a.status));
+  const visibleIds = list.map(a => a.id);
+
+  const move = (from, to) => {
+    if (from === to || from == null || to == null) return;
+    const vis = [...visibleIds];
+    const [m] = vis.splice(from, 1); vis.splice(to, 0, m);
+    let k = 0;
+    setOrder(ids.map(id => visibleIds.includes(id) ? vis[k++] : id));
+  };
+  const onDown = (e, i) => { if (!editable) return; setDragIdx(i); e.currentTarget.setPointerCapture?.(e.pointerId); e.preventDefault(); };
+  const onMove = (e) => {
+    if (dragIdx == null) return;
+    const el = document.elementFromPoint(e.clientX, e.clientY)?.closest('[data-oidx]');
+    if (el) { const i = Number(el.dataset.oidx); if (i !== overIdx) setOverIdx(i); }
+  };
+  const onUp = () => { if (dragIdx != null && overIdx != null) move(dragIdx, overIdx); setDragIdx(null); setOverIdx(null); };
+
+  if (!list.length) return <div className="text-xs text-slate-400 text-center py-6 border border-dashed rounded">대상이 없습니다{presentOnly && ' (참석 내빈만 표시 중)'}</div>;
+  return (
+    <div className="space-y-1.5" onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} style={{ touchAction: editable ? 'none' : 'auto' }}>
+      {list.map((a, i) => {
+        const absent = !PRESENT.includes(a.status);
+        return (
+          <div key={a.id} data-oidx={i}
+            className={`flex items-center gap-2 rounded-lg border px-2 py-2 bg-white select-none ${dragIdx === i ? 'opacity-50 ring-2 ring-blue-400' : overIdx === i && dragIdx != null ? 'border-blue-400 border-dashed' : absent ? 'border-rose-200 bg-rose-50/40' : 'border-slate-200'}`}>
+            {editable && <div onPointerDown={e => onDown(e, i)} className="cursor-grab active:cursor-grabbing text-slate-400 px-1 py-2 shrink-0"><GripVertical className="w-4 h-4" /></div>}
+            <div className="w-6 h-6 rounded-full bg-slate-900 text-white text-xs font-bold flex items-center justify-center shrink-0">{i + 1}</div>
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-bold truncate">{a.name} <span className="text-xs font-normal text-slate-600">{a.position}</span></div>
+              <div className="text-[11px] text-slate-500 truncate">{a.organization}</div>
+            </div>
+            {renderExtra && renderExtra(a)}
+            <StatusChip status={a.status} small />
+            {absent && <span className="text-[10px] text-rose-600 font-semibold hidden sm:inline">미참석</span>}
+            {editable && (
+              <div className="flex items-center gap-0.5 shrink-0">
+                <button onClick={() => move(i, Math.max(0, i - 1))} className="text-slate-400 hover:text-slate-800 px-1 text-xs">▲</button>
+                <button onClick={() => move(i, Math.min(list.length - 1, i + 1))} className="text-slate-400 hover:text-slate-800 px-1 text-xs">▼</button>
+                {onRemove && <button onClick={() => onRemove(a.id)} className="text-slate-300 hover:text-rose-600 px-1"><X className="w-3.5 h-3.5" /></button>}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// =====================================================================
+// 인사말씀·내빈 소개 순서
+// =====================================================================
+function SpeechView({ attendees, speechOrder, introOrder, setSpeechOrder, setIntroOrder, isAdmin, updateAttendee, toggleSpeech, toggleIntro, notify }) {
+  const [tab, setTab] = useState('speech');
+  const [presentOnly, setPresentOnly] = useState(false);
+  const [addId, setAddId] = useState('');
+
+  const speakers = speechOrder.map(id => attendees.find(a => a.id === id)).filter(Boolean);
+  const introIds = introOrder.filter(id => attendees.find(a => a.id === id)?.intro);
+  const intros = introIds.map(id => attendees.find(a => a.id === id));
+  const presentSpeakers = speakers.filter(a => PRESENT.includes(a.status));
+  const presentIntros = intros.filter(a => PRESENT.includes(a.status));
+
+  const speechScript = (presentOnly ? presentSpeakers : speakers).map((a, i) =>
+    `${i + 1}. 다음은 ${honor(a)}의 ${a.speechType}이 있겠습니다. 큰 박수로 맞아 주시기 바랍니다.`).join('\n');
+  const introScript = (() => {
+    const list = presentOnly ? presentIntros : intros;
+    const groups = [];
+    list.forEach(a => { const g = groups.find(x => x.cat === a.category); g ? g.items.push(a) : groups.push({ cat: a.category, items: [a] }); });
+    return groups.map(g => `[${g.cat}]\n` + g.items.map(a => ` · ${honor(a)}`).join('\n')).join('\n') + '\n\n이상 참석해 주신 내빈 여러분께 감사의 박수를 부탁드립니다.';
+  })();
+
+  const copy = (t) => { navigator.clipboard?.writeText(t).then(() => notify('복사되었습니다')); };
+  const candidates = attendees.filter(a => tab === 'speech' ? !a.speech : !a.intro);
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex rounded border border-slate-300 overflow-hidden">
+          <button onClick={() => setTab('speech')} className={`px-3 py-1.5 text-xs font-semibold flex items-center gap-1 ${tab === 'speech' ? 'bg-slate-900 text-white' : 'bg-white text-slate-600'}`}><Mic2 className="w-3.5 h-3.5" />인사말씀 순서 ({presentSpeakers.length}/{speakers.length})</button>
+          <button onClick={() => setTab('intro')} className={`px-3 py-1.5 text-xs font-semibold flex items-center gap-1 ${tab === 'intro' ? 'bg-slate-900 text-white' : 'bg-white text-slate-600'}`}><ListOrdered className="w-3.5 h-3.5" />내빈 소개 순서 ({presentIntros.length}/{intros.length})</button>
+        </div>
+        <label className="flex items-center gap-1 text-xs text-slate-600 cursor-pointer"><input type="checkbox" checked={presentOnly} onChange={e => setPresentOnly(e.target.checked)} />참석(도착·착석) 내빈만</label>
+        {isAdmin && (
+          <div className="ml-auto flex items-center gap-1">
+            <select value={addId} onChange={e => setAddId(e.target.value)} className="text-xs border border-slate-300 rounded px-2 py-1.5 max-w-[220px]">
+              <option value="">+ 대상 추가…</option>
+              {candidates.map(a => <option key={a.id} value={a.id}>{a.name} {a.position} · {a.organization}</option>)}
+            </select>
+            <button onClick={() => { if (!addId) return; tab === 'speech' ? toggleSpeech(Number(addId), true) : toggleIntro(Number(addId), true); setAddId(''); }} className="text-xs px-2 py-1.5 rounded bg-slate-900 text-white flex items-center gap-1"><Plus className="w-3 h-3" />추가</button>
+          </div>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-3">
+        <div className="lg:col-span-3 bg-white border border-slate-200 rounded-lg p-3">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-sm font-bold">{tab === 'speech' ? '인사말씀 순서' : '내빈 소개 순서'}</h2>
+            <span className="text-[10px] text-slate-400">{isAdmin ? '⠿ 손잡이를 끌어 블록 단위로 순서를 바꿉니다' : '조회 전용'}</span>
+          </div>
+          {tab === 'speech' ? (
+            <OrderList ids={speechOrder} attendees={attendees} setOrder={setSpeechOrder} editable={isAdmin} presentOnly={presentOnly} onRemove={id => toggleSpeech(id, false)}
+              renderExtra={a => isAdmin
+                ? <select value={a.speechType} onChange={e => updateAttendee(a.id, { speechType: e.target.value })} className="text-[11px] border border-violet-300 text-violet-700 rounded px-1 py-0.5 bg-violet-50">{SPEECH_TYPES.map(t => <option key={t}>{t}</option>)}</select>
+                : <span className="text-[11px] px-1.5 py-0.5 rounded bg-violet-50 text-violet-700 border border-violet-200 font-semibold">{a.speechType}</span>} />
+          ) : (
+            <OrderList ids={introIds} attendees={attendees} editable={isAdmin} presentOnly={presentOnly} onRemove={id => toggleIntro(id, false)}
+              setOrder={vis => { const hidden = introOrder.filter(id => !vis.includes(id)); setIntroOrder([...vis, ...hidden]); }}
+              renderExtra={a => <span className="text-[10px] text-slate-400 hidden md:inline">{a.category}</span>} />
+          )}
+        </div>
+        <div className="lg:col-span-2 bg-white border border-slate-200 rounded-lg p-3 flex flex-col">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-sm font-bold">사회자 멘트 (자동 작성)</h2>
+            <button onClick={() => copy(tab === 'speech' ? speechScript : introScript)} className="text-xs px-2 py-1 rounded border border-slate-300 hover:bg-slate-50 flex items-center gap-1"><Copy className="w-3 h-3" />복사</button>
+          </div>
+          <textarea readOnly value={tab === 'speech' ? speechScript : introScript} className="flex-1 min-h-[280px] text-xs font-mono border border-slate-200 rounded p-2 bg-slate-50 leading-relaxed" />
+          <p className="text-[10px] text-slate-400 mt-1">순서·참석 여부가 바뀌면 멘트가 바로 다시 작성됩니다. 미참석 내빈은 붉게 표시됩니다.</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// =====================================================================
+// 좌석 현황 (구역 블록 이동)
+// =====================================================================
+function SeatView({ attendees, layout, setLayout, isAdmin, setStatus }) {
+  const sections = [...new Set(attendees.map(a => (a.seat || '').split('-')[0]).filter(Boolean))];
+  const [dragging, setDragging] = useState(null);
   const [zoom, setZoom] = useState(1);
   const boardRef = useRef(null);
-
-  useEffect(() => {
-    try { localStorage.setItem(SEAT_LAYOUT_KEY, JSON.stringify(layout)); } catch {}
-  }, [layout]);
+  const get = s => layout[s] || { x: 20, y: 20 + sections.indexOf(s) * 260, cols: 10 };
 
   const onPointerDown = (e, section) => {
+    if (!isAdmin) return;
     const board = boardRef.current.getBoundingClientRect();
     const rect = e.currentTarget.parentElement.getBoundingClientRect();
     setDragging({ section, offX: e.clientX - rect.left, offY: e.clientY - rect.top, boardLeft: board.left, boardTop: board.top });
-    e.currentTarget.setPointerCapture?.(e.pointerId);
-    e.preventDefault();
+    e.currentTarget.setPointerCapture?.(e.pointerId); e.preventDefault();
   };
   const onPointerMove = (e) => {
     if (!dragging) return;
-    const board = boardRef.current;
-    const x = Math.max(0, (e.clientX - dragging.boardLeft - dragging.offX + board.scrollLeft) / zoom);
-    const y = Math.max(0, (e.clientY - dragging.boardTop - dragging.offY + board.scrollTop) / zoom);
-    setLayout(l => ({ ...l, [dragging.section]: { ...l[dragging.section], x: Math.round(x / 10) * 10, y: Math.round(y / 10) * 10 } }));
+    const b = boardRef.current;
+    const x = Math.max(0, (e.clientX - dragging.boardLeft - dragging.offX + b.scrollLeft) / zoom);
+    const y = Math.max(0, (e.clientY - dragging.boardTop - dragging.offY + b.scrollTop) / zoom);
+    setLayout(l => ({ ...l, [dragging.section]: { ...get(dragging.section), ...(l[dragging.section] || {}), x: Math.round(x / 10) * 10, y: Math.round(y / 10) * 10 } }));
   };
   const onPointerUp = () => setDragging(null);
-
-  const setCols = (section, cols) => setLayout(l => ({ ...l, [section]: { ...l[section], cols } }));
-  const resetLayout = () => { setLayout(DEFAULT_LAYOUT); try { localStorage.removeItem(SEAT_LAYOUT_KEY); } catch {} };
-
-  const boardHeight = Math.max(700, ...sections.map(s => layout[s].y + 320));
+  const setCols = (s, cols) => setLayout(l => ({ ...l, [s]: { ...get(s), cols } }));
+  const boardHeight = Math.max(600, ...sections.map(s => get(s).y + 360));
 
   return (
-    <div className="space-y-4">
-      <div className="bg-white border border-slate-200 rounded-lg p-5">
-        <div className="flex items-start justify-between gap-3 mb-1">
-          <div>
-            <h2 className="text-base font-bold text-slate-900 mb-1 flex items-center gap-2">
-              <MapPin className="w-4 h-4" /> 좌석 현황
-            </h2>
-            <p className="text-xs text-slate-500">색상이 채워진 좌석은 착석 완료 상태입니다. 구역 제목을 끌어서 블록 단위로 배치를 옮길 수 있습니다.</p>
-          </div>
-          <div className="flex items-center gap-1 shrink-0">
-            <button onClick={() => setZoom(z => Math.max(0.5, +(z - 0.1).toFixed(1)))} className="px-2 py-1 text-xs border border-slate-300 rounded hover:bg-slate-50">－</button>
-            <span className="text-[10px] text-slate-500 w-9 text-center">{Math.round(zoom * 100)}%</span>
-            <button onClick={() => setZoom(z => Math.min(1.5, +(z + 0.1).toFixed(1)))} className="px-2 py-1 text-xs border border-slate-300 rounded hover:bg-slate-50">＋</button>
-            <button onClick={resetLayout} className="ml-2 px-2 py-1 text-xs border border-slate-300 rounded hover:bg-slate-50">배치 초기화</button>
-          </div>
+    <div className="bg-white border border-slate-200 rounded-lg p-3">
+      <div className="flex items-start justify-between gap-3 mb-2">
+        <div>
+          <h2 className="text-sm font-bold flex items-center gap-1.5"><MapPin className="w-4 h-4" />좌석 현황</h2>
+          <p className="text-[11px] text-slate-500">색이 채워진 좌석은 착석 완료. {isAdmin ? '구역 제목을 끌어 블록 단위로 옮기고, 좌석을 누르면 착석/도착을 바꿉니다.' : '조회 전용입니다.'}</p>
         </div>
-
-        {/* 무대 */}
-        <div className="bg-slate-800 text-white text-center py-3 rounded mt-3 mb-3 text-xs font-bold tracking-widest">
-          ━━━━━ 무 대 (STAGE) ━━━━━
+        <div className="flex items-center gap-1 shrink-0">
+          <button onClick={() => setZoom(z => Math.max(0.5, +(z - 0.1).toFixed(1)))} className="px-2 py-1 text-xs border border-slate-300 rounded">－</button>
+          <span className="text-[10px] text-slate-500 w-9 text-center">{Math.round(zoom * 100)}%</span>
+          <button onClick={() => setZoom(z => Math.min(1.5, +(z + 0.1).toFixed(1)))} className="px-2 py-1 text-xs border border-slate-300 rounded">＋</button>
+          {isAdmin && <button onClick={() => setLayout({})} className="ml-2 px-2 py-1 text-xs border border-slate-300 rounded">배치 초기화</button>}
         </div>
-
-        {/* 배치판 */}
-        <div
-          ref={boardRef}
-          className="relative overflow-auto rounded border border-dashed border-slate-300 bg-slate-50"
-          style={{ height: 720, backgroundImage: 'radial-gradient(#cbd5e1 1px, transparent 1px)', backgroundSize: '20px 20px', touchAction: 'none' }}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerLeave={onPointerUp}
-        >
-          <div style={{ position: 'relative', width: '100%', minHeight: boardHeight * zoom }}>
+      </div>
+      <div className="bg-slate-800 text-white text-center py-2 rounded mb-2 text-xs font-bold tracking-widest">━━━━━ 무 대 (STAGE) ━━━━━</div>
+      <div ref={boardRef} className="relative overflow-auto rounded border border-dashed border-slate-300 bg-slate-50" style={{ height: 640, backgroundImage: 'radial-gradient(#cbd5e1 1px, transparent 1px)', backgroundSize: '20px 20px', touchAction: 'none' }}
+        onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerLeave={onPointerUp}>
+        <div style={{ position: 'relative', width: '100%', minHeight: boardHeight * zoom }}>
           {sections.map(section => {
-            const sectionAttendees = attendees.filter(a => a.seat.startsWith(section));
-            const grade = section === 'A' ? 'VVIP' : section === 'B' ? 'VIP' : '일반';
-            const style = GRADE_STYLES[grade];
-            const pos = layout[section];
-            const seatPx = 44;
-            const width = pos.cols * seatPx + (pos.cols - 1) * 4 + 16;
-            const isDragging = dragging?.section === section;
-
+            const list = attendees.filter(a => a.seat.startsWith(section + '-')).sort((a, b) => a.seat.localeCompare(b.seat));
+            const grade = list[0]?.grade || 'VVIP'; const style = GRADE_STYLES[grade] || GRADE_STYLES.VVIP; const pos = get(section);
+            const seatPx = 44; const width = pos.cols * seatPx + (pos.cols - 1) * 4 + 16;
             return (
-              <div
-                key={section}
-                className={`absolute bg-white rounded-lg border shadow-sm select-none ${isDragging ? 'shadow-lg ring-2 ring-blue-400 z-20' : 'border-slate-200 z-10'}`}
-                style={{ left: pos.x * zoom, top: pos.y * zoom, width, transform: `scale(${zoom})`, transformOrigin: 'top left' }}
-              >
-                <div
-                  onPointerDown={(e) => onPointerDown(e, section)}
-                  className={`flex items-center justify-between px-2 py-1.5 rounded-t-lg cursor-grab active:cursor-grabbing ${style.light} border-b ${style.border}`}
-                >
+              <div key={section} className={`absolute bg-white rounded-lg border shadow-sm select-none ${dragging?.section === section ? 'shadow-lg ring-2 ring-blue-400 z-20' : 'border-slate-200 z-10'}`}
+                style={{ left: pos.x * zoom, top: pos.y * zoom, width, transform: `scale(${zoom})`, transformOrigin: 'top left' }}>
+                <div onPointerDown={e => onPointerDown(e, section)} className={`flex items-center justify-between px-2 py-1.5 rounded-t-lg ${isAdmin ? 'cursor-grab active:cursor-grabbing' : ''} ${style.light} border-b ${style.border}`}>
                   <div className="flex items-center gap-2">
-                    <span className="text-slate-400 text-xs">⠿</span>
+                    {isAdmin && <span className="text-slate-400 text-xs">⠿</span>}
                     <span className={`px-2 py-0.5 rounded text-[10px] font-bold text-white ${style.bg}`}>{grade}</span>
-                    <span className="text-xs font-bold text-slate-700">{section} 구역 ({sectionAttendees.length}석)</span>
+                    <span className="text-xs font-bold text-slate-700">{section} 구역 ({list.length}석)</span>
                   </div>
                   <div className="flex items-center gap-2" onPointerDown={e => e.stopPropagation()}>
-                    <select
-                      value={pos.cols}
-                      onChange={e => setCols(section, Number(e.target.value))}
-                      className="text-[10px] border border-slate-300 rounded px-1 py-0.5 bg-white"
-                      title="한 줄 좌석 수"
-                    >
-                      {[4, 5, 8, 10, 20].map(c => <option key={c} value={c}>{c}열</option>)}
-                    </select>
-                    <span className="text-[10px] text-slate-500">
-                      착석 {sectionAttendees.filter(a => a.status === '착석 완료').length}/{sectionAttendees.length}
-                    </span>
+                    {isAdmin && <select value={pos.cols} onChange={e => setCols(section, Number(e.target.value))} className="text-[10px] border border-slate-300 rounded px-1 py-0.5 bg-white">{[4, 5, 6, 8, 10, 12, 15].map(c => <option key={c} value={c}>{c}열</option>)}</select>}
+                    <span className="text-[10px] text-slate-500">착석 {list.filter(a => a.status === '착석').length}/{list.length}</span>
                   </div>
                 </div>
                 <div className="p-2 grid gap-1" style={{ gridTemplateColumns: `repeat(${pos.cols}, ${seatPx}px)` }}>
-                  {sectionAttendees.map(a => {
-                    const seated = a.status === '착석 완료';
+                  {list.map(a => {
+                    const seated = a.status === '착석'; const arrived = a.status === '도착';
                     return (
-                      <div
-                        key={a.id}
-                        title={`${a.seat} · ${a.name} · ${a.status}`}
-                        className={`aspect-square rounded text-[9px] flex flex-col items-center justify-center font-mono cursor-help transition-transform hover:scale-110 ${
-                          seated ? `${style.bg} text-white` : 'bg-slate-100 text-slate-400 border border-dashed border-slate-300'
-                        }`}
-                      >
-                        <div className="font-bold">{a.seat.split('-')[1]}</div>
-                        {seated && <div className="text-[7px] opacity-90">●</div>}
+                      <div key={a.id} title={`${a.seat} · ${a.name} ${a.position} · ${a.status}`}
+                        onClick={() => isAdmin && setStatus(a.id, seated ? '도착' : '착석')}
+                        className={`aspect-square rounded text-[9px] flex flex-col items-center justify-center leading-tight transition-transform hover:scale-110 ${isAdmin ? 'cursor-pointer' : 'cursor-help'} ${
+                          seated ? `${style.bg} text-white` : arrived ? 'bg-amber-100 text-amber-800 border border-amber-300' : a.status === '불참' ? 'bg-rose-50 text-rose-300 border border-rose-200 line-through' : 'bg-slate-100 text-slate-400 border border-dashed border-slate-300'}`}>
+                        <div className="font-mono font-bold">{a.seat.split('-')[1]}</div>
+                        <div className="truncate max-w-[40px]">{a.name.slice(0, 3)}</div>
                       </div>
                     );
                   })}
@@ -1394,559 +633,180 @@ function SeatView({ attendees }) {
               </div>
             );
           })}
-          </div>
         </div>
       </div>
     </div>
   );
 }
 
-// ============ 결과보고 ============
-function ReportView({ stats, attendees, onShare }) {
-  const seatedFinal = stats.seated;
-  const noShow = attendees.filter(a => a.status === '미도착' || a.status === '불참').length;
-  
+// =====================================================================
+// 내빈 관리 (관리자)
+// =====================================================================
+function ManageView({ attendees, updateAttendee, addAttendee, removeAttendee, setStatus, toggleSpeech, toggleIntro, notify, patch }) {
+  const [paste, setPaste] = useState('');
+  const [showPaste, setShowPaste] = useState(false);
+  const cell = 'border border-transparent hover:border-slate-300 focus:border-blue-400 rounded px-1 py-0.5 text-xs w-full bg-transparent';
+
+  const importPaste = () => {
+    const rows = paste.split('\n').map(r => r.trim()).filter(Boolean);
+    let n = 0;
+    rows.forEach(r => {
+      const c = r.split(/\t|\|/).map(x => x.trim());
+      if (c.length < 4) return;
+      addAttendee({ category: c[0], organization: c[1], position: c[2], name: c[3], seat: c[4] || '', note: c[5] || '' }); n++;
+    });
+    setPaste(''); setShowPaste(false); notify(`${n}명을 추가했습니다`);
+  };
+  const exportCsv = () => {
+    const head = ['연번', '구분', '소속', '직위', '성명', '등급', '좌석', '상태', '도착', '착석', '인사말씀', '소개', '비고'];
+    const rows = attendees.map((a, i) => [i + 1, a.category, a.organization, a.position, a.name, a.grade, a.seat, a.status, a.arrivalTime || '', a.seatedTime || '', a.speech ? a.speechType : '', a.intro ? 'Y' : '', a.note]);
+    const csv = '﻿' + [head, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+    const a = document.createElement('a'); a.href = url; a.download = `내빈현황_${new Date().toISOString().slice(0, 10)}.csv`; a.click();
+  };
+  const resetStatus = () => { if (confirm('모든 내빈의 도착·착석 상태를 미도착으로 되돌립니다. 계속할까요?')) patch(s => ({ attendees: s.attendees.map(a => ({ ...a, status: '미도착', arrivalTime: null, seatedTime: null })) })); };
+  const reseat = () => { if (confirm('현재 목록 순서대로 좌석번호(A-01~)를 다시 매깁니다. 계속할까요?')) patch(s => ({ attendees: s.attendees.map((a, i) => ({ ...a, seat: `A-${String(i + 1).padStart(2, '0')}` })) })); };
+
   return (
-    <div className="space-y-4">
-      <div className="bg-white border border-slate-200 rounded-lg p-5">
-        <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-200">
-          <div>
-            <h2 className="text-base font-bold text-slate-900">행사 결과 요약 보고</h2>
-            <p className="text-xs text-slate-500">2026.05.03 기준 · 자동 생성</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={onShare}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-yellow-400 hover:bg-yellow-500 text-slate-900 rounded text-xs font-bold transition-colors"
-            >
-              <MessageCircle className="w-3.5 h-3.5" />
-              카톡 공유
-            </button>
-            <FileText className="w-5 h-5 text-slate-400" />
-          </div>
+    <div className="bg-white border border-slate-200 rounded-lg p-3">
+      <div className="flex flex-wrap items-center gap-2 mb-3">
+        <h2 className="text-sm font-bold flex items-center gap-1.5"><Users className="w-4 h-4" />내빈 관리 <span className="text-xs font-normal text-slate-500">{attendees.length}명</span></h2>
+        <div className="ml-auto flex flex-wrap gap-1">
+          <button onClick={() => addAttendee({})} className="text-xs px-2 py-1.5 rounded bg-slate-900 text-white flex items-center gap-1"><Plus className="w-3 h-3" />1명 추가</button>
+          <button onClick={() => setShowPaste(v => !v)} className="text-xs px-2 py-1.5 rounded border border-slate-300 flex items-center gap-1"><Upload className="w-3 h-3" />엑셀 붙여넣기</button>
+          <button onClick={exportCsv} className="text-xs px-2 py-1.5 rounded border border-slate-300 flex items-center gap-1"><Download className="w-3 h-3" />엑셀(CSV) 저장</button>
+          <button onClick={reseat} className="text-xs px-2 py-1.5 rounded border border-slate-300">좌석 재부여</button>
+          <button onClick={resetStatus} className="text-xs px-2 py-1.5 rounded border border-rose-300 text-rose-600 flex items-center gap-1"><RotateCcw className="w-3 h-3" />상태 초기화</button>
         </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-          <ReportStat label="초청 인원" value={stats.total} unit="명" />
-          <ReportStat label="실 참석" value={stats.arrived} unit="명" highlight />
-          <ReportStat label="최종 착석" value={seatedFinal} unit="명" />
-          <ReportStat label="불참·미도착" value={noShow} unit="명" warning />
+      </div>
+      {showPaste && (
+        <div className="mb-3 border border-blue-200 bg-blue-50 rounded p-2">
+          <div className="text-[11px] text-slate-600 mb-1">엑셀에서 <b>구분 | 소속 | 직위 | 성명 | 좌석 | 비고</b> 열을 복사해 붙여넣으세요 (탭 또는 | 구분, 좌석·비고는 생략 가능)</div>
+          <textarea value={paste} onChange={e => setPaste(e.target.value)} rows={5} className="w-full text-xs border border-slate-300 rounded p-2 font-mono" placeholder={'국회\t국회\t국회의원\t홍길동\tA-44'} />
+          <div className="flex gap-1 mt-1"><button onClick={importPaste} className="text-xs px-3 py-1 rounded bg-blue-600 text-white">추가</button><button onClick={() => setShowPaste(false)} className="text-xs px-3 py-1 rounded border">취소</button></div>
         </div>
-
-        <div className="mb-5">
-          <h3 className="text-xs font-bold text-slate-700 mb-2">▣ 등급별 참석 결과</h3>
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs border-collapse">
-              <thead>
-                <tr className="bg-slate-50 border-y border-slate-300">
-                  <th className="text-left py-2 px-3 font-bold text-slate-700">구분</th>
-                  <th className="text-right py-2 px-3 font-bold text-slate-700">초청</th>
-                  <th className="text-right py-2 px-3 font-bold text-slate-700">참석</th>
-                  <th className="text-right py-2 px-3 font-bold text-slate-700">불참</th>
-                  <th className="text-right py-2 px-3 font-bold text-slate-700">참석률</th>
-                </tr>
-              </thead>
-              <tbody>
-                {Object.entries(stats.byGrade).map(([grade, list]) => {
-                  const arrived = list.filter(a => ['주차장 도착', '로비 도착', '대기실', '착석 완료'].includes(a.status)).length;
-                  const absent = list.length - arrived;
-                  const rate = list.length > 0 ? ((arrived / list.length) * 100).toFixed(1) : 0;
-                  return (
-                    <tr key={grade} className="border-b border-slate-200">
-                      <td className="py-2 px-3 font-medium text-slate-900">{grade}</td>
-                      <td className="py-2 px-3 text-right font-mono">{list.length}</td>
-                      <td className="py-2 px-3 text-right font-mono text-emerald-700 font-bold">{arrived}</td>
-                      <td className="py-2 px-3 text-right font-mono text-rose-700">{absent}</td>
-                      <td className="py-2 px-3 text-right font-mono font-bold">{rate}%</td>
-                    </tr>
-                  );
-                })}
-                <tr className="bg-slate-100 border-t-2 border-slate-700 font-bold">
-                  <td className="py-2 px-3">합계</td>
-                  <td className="py-2 px-3 text-right font-mono">{stats.total}</td>
-                  <td className="py-2 px-3 text-right font-mono text-emerald-700">{stats.arrived}</td>
-                  <td className="py-2 px-3 text-right font-mono text-rose-700">{stats.total - stats.arrived}</td>
-                  <td className="py-2 px-3 text-right font-mono">{stats.attendanceRate}%</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div className="mb-5">
-          <h3 className="text-xs font-bold text-slate-700 mb-2">▣ 상태별 최종 분포</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-            {STATUSES.map(s => (
-              <div key={s} className="bg-slate-50 rounded p-2.5 border border-slate-200">
-                <div className="flex items-center gap-1.5 mb-1">
-                  <div className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[s]}`} />
-                  <span className="text-[10px] text-slate-600">{s}</span>
-                </div>
-                <div className="text-base font-bold text-slate-900">{stats.byStatus[s] || 0}<span className="text-[10px] font-normal text-slate-500 ml-0.5">명</span></div>
-              </div>
+      )}
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs min-w-[980px]">
+          <thead><tr className="bg-slate-100 text-slate-600 text-left">
+            {['#', '구분', '소속', '직위', '성명', '등급', '좌석', '상태 변경', '인사말씀', '소개', '비고', ''].map(h => <th key={h} className="px-1.5 py-1.5 font-semibold whitespace-nowrap">{h}</th>)}
+          </tr></thead>
+          <tbody>
+            {attendees.map((a, i) => (
+              <tr key={a.id} className="border-b border-slate-100 hover:bg-slate-50 align-middle">
+                <td className="px-1.5 text-slate-400">{i + 1}</td>
+                <td className="px-1 w-28"><input className={cell} value={a.category} onChange={e => updateAttendee(a.id, { category: e.target.value })} /></td>
+                <td className="px-1 w-44"><input className={cell} value={a.organization} onChange={e => updateAttendee(a.id, { organization: e.target.value })} /></td>
+                <td className="px-1 w-28"><input className={cell} value={a.position} onChange={e => updateAttendee(a.id, { position: e.target.value })} /></td>
+                <td className="px-1 w-24"><input className={`${cell} font-bold`} value={a.name} onChange={e => updateAttendee(a.id, { name: e.target.value })} /></td>
+                <td className="px-1"><select value={a.grade} onChange={e => updateAttendee(a.id, { grade: e.target.value })} className="text-xs border border-slate-200 rounded px-1 py-0.5">{GRADES.map(g => <option key={g}>{g}</option>)}</select></td>
+                <td className="px-1 w-16"><input className={`${cell} font-mono`} value={a.seat} onChange={e => updateAttendee(a.id, { seat: e.target.value.toUpperCase() })} /></td>
+                <td className="px-1"><div className="flex items-center gap-1"><StatusChip status={a.status} small /><StatusButtons a={a} setStatus={setStatus} compact /></div></td>
+                <td className="px-1 whitespace-nowrap">
+                  <input type="checkbox" checked={a.speech} onChange={e => toggleSpeech(a.id, e.target.checked)} className="accent-violet-600 mr-1" />
+                  {a.speech && <select value={a.speechType} onChange={e => updateAttendee(a.id, { speechType: e.target.value })} className="text-[11px] border border-violet-200 rounded px-1">{SPEECH_TYPES.map(t => <option key={t}>{t}</option>)}</select>}
+                </td>
+                <td className="px-1 text-center"><input type="checkbox" checked={a.intro} onChange={e => toggleIntro(a.id, e.target.checked)} /></td>
+                <td className="px-1 w-32"><input className={cell} value={a.note} onChange={e => updateAttendee(a.id, { note: e.target.value })} /></td>
+                <td className="px-1"><button onClick={() => { if (confirm(`${a.name || '이 내빈'}을(를) 삭제할까요?`)) removeAttendee(a.id); }} className="text-slate-300 hover:text-rose-600"><Trash2 className="w-3.5 h-3.5" /></button></td>
+              </tr>
             ))}
-          </div>
-        </div>
-
-        <div className="bg-slate-50 border-l-4 border-slate-700 p-3 text-xs text-slate-700">
-          <div className="font-bold mb-1">▣ 특이사항</div>
-          <div>· VVIP {stats.byGrade.VVIP.length}명 중 {stats.byGrade.VVIP.filter(a => ['주차장 도착','로비 도착','대기실','착석 완료'].includes(a.status)).length}명 참석</div>
-          <div>· 전체 참석률 {stats.attendanceRate}% (목표 90% 대비)</div>
-          <div>· 불참·미도착 {noShow}명 사후 확인 필요</div>
-        </div>
+          </tbody>
+        </table>
       </div>
     </div>
   );
 }
 
-function ReportStat({ label, value, unit, highlight, warning }) {
+// =====================================================================
+// 설정 (관리자)
+// =====================================================================
+function SettingsView({ state, patch, setState, notify }) {
+  const [ev, setEv] = useState(state.event);
+  const [prog, setProg] = useState(state.program.map(p => `${p.time} | ${p.dur} | ${p.title} | ${p.note}`).join('\n'));
+  const [pin1, setPin1] = useState(''); const [pin2, setPin2] = useState('');
+  const fileRef = useRef(null);
+
+  const saveEvent = () => { patch(() => ({ event: ev })); notify('행사 정보를 저장했습니다'); };
+  const saveProg = () => {
+    const program = prog.split('\n').map(l => l.trim()).filter(Boolean).map((l, i) => { const c = l.split('|').map(x => x.trim()); return { id: 'p' + (i + 1), time: c[0] || '', dur: Number(c[1]) || 0, title: c[2] || '', note: c[3] || '' }; });
+    patch(() => ({ program })); notify('식순을 저장했습니다');
+  };
+  const savePin = () => { if (pin1.length < 4) return notify('4자리 이상 입력하세요'); if (pin1 !== pin2) return notify('두 입력이 다릅니다'); patch(() => ({ adminPin: pin1 })); setPin1(''); setPin2(''); notify('비밀번호를 변경했습니다'); };
+  const backup = () => {
+    const url = URL.createObjectURL(new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' }));
+    const a = document.createElement('a'); a.href = url; a.download = `내빈플랫폼_백업_${new Date().toISOString().slice(0, 16).replace(/[:T]/g, '')}.json`; a.click();
+  };
+  const restore = (f) => { const r = new FileReader(); r.onload = () => { try { const s = JSON.parse(r.result); if (!s.attendees) throw 0; setState({ ...DEFAULT_STATE(), ...s }); notify('복원했습니다'); } catch { notify('파일 형식이 올바르지 않습니다'); } }; r.readAsText(f); };
+  const resetAll = () => { if (confirm('모든 자료를 초기 상태(RSVP 43명)로 되돌립니다. 백업을 먼저 받으셨나요?')) { setState(DEFAULT_STATE()); notify('초기화했습니다'); } };
+  const box = 'bg-white border border-slate-200 rounded-lg p-3';
+  const inp = 'w-full border border-slate-300 rounded px-2 py-1.5 text-xs';
+
   return (
-    <div className={`rounded-lg p-3 border ${highlight ? 'bg-emerald-50 border-emerald-300' : warning ? 'bg-rose-50 border-rose-200' : 'bg-slate-50 border-slate-200'}`}>
-      <div className="text-[10px] text-slate-600 mb-1">{label}</div>
-      <div className="flex items-baseline gap-1">
-        <span className={`text-2xl font-bold ${highlight ? 'text-emerald-700' : warning ? 'text-rose-700' : 'text-slate-900'}`}>{value}</span>
-        <span className="text-xs text-slate-500">{unit}</span>
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+      <div className={box}>
+        <h2 className="text-sm font-bold mb-2">행사 정보</h2>
+        {[['name', '행사명'], ['date', '일시'], ['place', '장소'], ['host', '주최'], ['mc', '사회자']].map(([k, l]) => (
+          <label key={k} className="block mb-1.5"><span className="text-[11px] text-slate-500">{l}</span><input className={inp} value={ev[k]} onChange={e => setEv({ ...ev, [k]: e.target.value })} /></label>
+        ))}
+        <button onClick={saveEvent} className="text-xs px-3 py-1.5 rounded bg-slate-900 text-white">저장</button>
+      </div>
+      <div className={box}>
+        <h2 className="text-sm font-bold mb-1">식순</h2>
+        <p className="text-[11px] text-slate-500 mb-1">한 줄에 하나씩 <b>시작시각 | 소요(분) | 내용 | 비고</b></p>
+        <textarea value={prog} onChange={e => setProg(e.target.value)} rows={11} className={`${inp} font-mono`} />
+        <button onClick={saveProg} className="mt-1 text-xs px-3 py-1.5 rounded bg-slate-900 text-white">저장</button>
+      </div>
+      <div className={box}>
+        <h2 className="text-sm font-bold mb-2">관리자 비밀번호 변경</h2>
+        <div className="flex gap-2 mb-2"><input type="password" placeholder="새 비밀번호" value={pin1} onChange={e => setPin1(e.target.value)} className={inp} /><input type="password" placeholder="다시 입력" value={pin2} onChange={e => setPin2(e.target.value)} className={inp} /></div>
+        <button onClick={savePin} className="text-xs px-3 py-1.5 rounded bg-slate-900 text-white">변경</button>
+        <p className="text-[10px] text-slate-400 mt-2">비밀번호는 이 브라우저에만 저장됩니다. 공용 PC에서는 사용 후 조회 모드로 전환하세요.</p>
+      </div>
+      <div className={box}>
+        <h2 className="text-sm font-bold mb-2">자료 백업·복원</h2>
+        <div className="flex flex-wrap gap-1">
+          <button onClick={backup} className="text-xs px-3 py-1.5 rounded border border-slate-300 flex items-center gap-1"><Download className="w-3 h-3" />백업 파일 내려받기</button>
+          <button onClick={() => fileRef.current.click()} className="text-xs px-3 py-1.5 rounded border border-slate-300 flex items-center gap-1"><Upload className="w-3 h-3" />백업 파일 복원</button>
+          <input ref={fileRef} type="file" accept=".json" className="hidden" onChange={e => e.target.files[0] && restore(e.target.files[0])} />
+          <button onClick={resetAll} className="text-xs px-3 py-1.5 rounded border border-rose-300 text-rose-600">초기 자료로 되돌리기</button>
+        </div>
+        <p className="text-[10px] text-slate-400 mt-2">다른 PC·태블릿에서 같은 자료를 쓰려면 백업 파일을 옮겨 복원하세요. 행사 전날과 당일 아침에 백업을 권장합니다.</p>
       </div>
     </div>
   );
 }
 
-// ============ 운영자 관리 ============
-function ManagersView({ managers, onAdd, onShowInvite, onRevoke }) {
-  const activeCount = managers.filter(m => m.status === 'active').length;
-  const revokedCount = managers.filter(m => m.status === 'revoked').length;
-  
+// =====================================================================
+// 결과 요약
+// =====================================================================
+function ReportView({ stats, attendees, event, speechOrder, notify }) {
+  const speakers = speechOrder.map(id => attendees.find(a => a.id === id)).filter(Boolean);
+  const text = `▣ ${event.name} 내빈 참석 결과 (${new Date().toLocaleString('ko-KR')} 기준)
+ · 초청 내빈 : ${stats.total}명
+ · 참석 : ${stats.present}명 (${stats.rate}%) — 착석 ${stats.seated}, 도착 ${stats.arrived}
+ · 미도착 ${stats.notArrived}명 / 불참 ${stats.absent}명 / 퇴장 ${stats.left}명
+
+▣ 인사말씀 (${speakers.length}명)
+${speakers.map((a, i) => ` ${i + 1}. ${a.speechType} — ${honor(a)} [${a.status}]`).join('\n')}
+
+▣ 미도착·불참 내빈
+${attendees.filter(a => !PRESENT.includes(a.status)).map(a => ` · ${honor(a)} (${a.status})`).join('\n') || ' · 없음'}`;
+  const byCat = [...new Set(attendees.map(a => a.category))].map(c => { const l = attendees.filter(a => a.category === c); return { c, t: l.length, p: l.filter(a => PRESENT.includes(a.status)).length }; });
+
   return (
-    <div className="space-y-4">
-      {/* 헤더 */}
-      <div className="bg-white border border-slate-200 rounded-lg p-5">
-        <div className="flex items-start justify-between mb-4">
-          <div>
-            <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <Shield className="w-4 h-4" /> 행사 운영자 관리
-            </h2>
-            <p className="text-xs text-slate-500 mt-1">행사 진행 중 신규 담당자를 추가하고 카카오톡으로 초대 링크를 발송합니다.</p>
-          </div>
-          <button
-            onClick={onAdd}
-            className="flex items-center gap-1.5 px-3 py-2 bg-slate-800 text-white rounded-lg text-xs font-bold hover:bg-slate-900 shadow-sm whitespace-nowrap"
-          >
-            <UserPlus className="w-4 h-4" />
-            신규 등록
-          </button>
-        </div>
-
-        {/* 현황 통계 */}
-        <div className="grid grid-cols-3 gap-2">
-          <div className="bg-emerald-50 border border-emerald-200 rounded p-2.5">
-            <div className="text-[10px] text-emerald-700 font-medium">활성</div>
-            <div className="text-lg font-bold text-emerald-700">{activeCount}<span className="text-[10px] font-normal ml-0.5">명</span></div>
-          </div>
-          <div className="bg-rose-50 border border-rose-200 rounded p-2.5">
-            <div className="text-[10px] text-rose-700 font-medium">권한 회수</div>
-            <div className="text-lg font-bold text-rose-700">{revokedCount}<span className="text-[10px] font-normal ml-0.5">명</span></div>
-          </div>
-          <div className="bg-slate-50 border border-slate-200 rounded p-2.5">
-            <div className="text-[10px] text-slate-700 font-medium">전체</div>
-            <div className="text-lg font-bold text-slate-700">{managers.length}<span className="text-[10px] font-normal ml-0.5">명</span></div>
-          </div>
-        </div>
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+      <div className="bg-white border border-slate-200 rounded-lg p-3">
+        <h2 className="text-sm font-bold mb-2">구분별 참석 현황</h2>
+        <table className="w-full text-xs">
+          <thead><tr className="bg-slate-100 text-slate-600"><th className="text-left px-2 py-1">구분</th><th className="px-2 py-1">초청</th><th className="px-2 py-1">참석</th><th className="px-2 py-1">참석률</th></tr></thead>
+          <tbody>{byCat.map(r => <tr key={r.c} className="border-b border-slate-100"><td className="px-2 py-1">{r.c}</td><td className="text-center">{r.t}</td><td className="text-center font-bold text-emerald-700">{r.p}</td><td className="text-center">{r.t ? Math.round(r.p / r.t * 100) : 0}%</td></tr>)}
+            <tr className="font-bold bg-slate-50"><td className="px-2 py-1">합계</td><td className="text-center">{stats.total}</td><td className="text-center text-emerald-700">{stats.present}</td><td className="text-center">{stats.rate}%</td></tr></tbody>
+        </table>
       </div>
-
-      {/* 권한 등급 안내 */}
-      <div className="bg-white border border-slate-200 rounded-lg p-4">
-        <h3 className="text-xs font-bold text-slate-700 mb-3">▣ 권한 등급별 접근 범위</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-          {Object.entries(ROLES).map(([key, r]) => {
-            const Icon = r.icon;
-            return (
-              <div key={key} className={`border rounded p-2.5 ${r.light}`}>
-                <div className="flex items-center gap-1.5 mb-1">
-                  <Icon className="w-3.5 h-3.5" />
-                  <span className="text-xs font-bold">{r.label}</span>
-                </div>
-                <div className="text-[10px] opacity-80">{r.desc}</div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* 관리자 목록 */}
-      <div className="bg-white border border-slate-200 rounded-lg p-4">
-        <h3 className="text-xs font-bold text-slate-700 mb-3">▣ 등록된 운영자 ({managers.length}명)</h3>
-        <div className="space-y-2">
-          {managers.map(m => {
-            const role = ROLES[m.role];
-            const Icon = role.icon;
-            const isActive = m.status === 'active';
-            return (
-              <div
-                key={m.id}
-                className={`border rounded-lg p-3 transition-all ${
-                  isActive 
-                    ? 'bg-white border-slate-200 hover:shadow-sm' 
-                    : 'bg-slate-50 border-slate-200 opacity-60'
-                }`}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-start gap-2.5 flex-1 min-w-0">
-                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${role.color}`}>
-                      <Icon className="w-4 h-4 text-white" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="font-bold text-sm text-slate-900">{m.name}</span>
-                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold border ${role.light}`}>
-                          {role.label}
-                        </span>
-                        {!isActive && (
-                          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-700 border border-rose-300">
-                            회수됨
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-[11px] text-slate-600 mt-0.5">{m.phone}</div>
-                      <div className="flex items-center gap-3 mt-1.5 text-[10px] text-slate-500">
-                        <span className="font-mono bg-slate-100 px-1.5 py-0.5 rounded">{m.token}</span>
-                        <span>등록 {m.addedAt}</span>
-                        <span className="hidden md:inline">by {m.addedBy}</span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {isActive && (
-                    <div className="flex flex-col gap-1 shrink-0">
-                      <button
-                        onClick={() => onShowInvite(m)}
-                        className="flex items-center gap-1 px-2 py-1.5 bg-yellow-400 hover:bg-yellow-500 text-slate-900 rounded text-[10px] font-bold whitespace-nowrap"
-                      >
-                        <MessageCircle className="w-3 h-3" /> 카톡 초대
-                      </button>
-                      <button
-                        onClick={() => onRevoke(m.id)}
-                        className="flex items-center gap-1 px-2 py-1.5 border border-rose-300 hover:bg-rose-50 text-rose-700 rounded text-[10px] font-medium whitespace-nowrap"
-                      >
-                        <Trash2 className="w-3 h-3" /> 권한 회수
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* 보안 안내 */}
-      <div className="bg-amber-50 border-l-4 border-amber-500 rounded p-3 text-xs text-amber-900">
-        <div className="font-bold mb-1 flex items-center gap-1">
-          <Shield className="w-3.5 h-3.5" /> 보안 운영 수칙
-        </div>
-        <div className="space-y-0.5 text-[11px]">
-          <div>· 초대 링크는 1회용이며, 행사 당일 24시간 후 자동 만료됩니다.</div>
-          <div>· 토큰은 외부 유출 금지. 유출 의심 시 즉시 [권한 회수] 버튼을 눌러 차단하세요.</div>
-          <div>· 「개인정보보호법」 §29(안전조치 의무)에 따라 모든 접속 이력이 자동 기록됩니다.</div>
-          <div>· VVIP 명단 조회 권한은 [총괄] 등급으로 제한 운영 권장.</div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ============ 플랫폼 공유 모달 ============
-function PlatformShareModal({ onClose }) {
-  const [copiedLink, setCopiedLink] = useState(false);
-  const [copiedText, setCopiedText] = useState(false);
-  const [activeTab, setActiveTab] = useState('intro'); // intro | brief | guide
-  
-  // ※ 실제 운영 시 화성시 공식 도메인으로 교체 (예: https://hsvip.hscity.go.kr)
-  // 현재는 시제품 단계로, 실 도메인 발급 전까지 데모 안내 표시
-  const platformUrl = typeof window !== 'undefined' ? window.location.href : '시제품 데모 환경';
-  const isPrototype = true; // 정식 배포 후 false로 변경
-  
-  // 3가지 공유 메시지 템플릿 (시제품 단계 - 외부 공유 불가)
-  const messages = {
-    intro: `[화성시 빅데이터팀]
-공공행사 VIP 실시간 상황관리 플랫폼 안내
-
-▣ 한 줄 소개
- 공공행사의 VIP 의전·체크인·결과보고를
- 모바일에서 실시간으로 관리하는 플랫폼입니다.
-
-▣ 핵심 기능
- · 참석자 등급별 실시간 상태 추적
- · VVIP 도착 자동 알림
- · 좌석·차량·담당자 통합 관리
- · 행사 종료 후 결과보고 자동 생성
- · 모바일 우선 (현장 즉시 활용)
-
-▣ 시연 안내
- 현재 시제품(Prototype) 단계로,
- 외부 접속 링크는 별도 배포 후 안내드립니다.
- 시연 요청은 빅데이터팀으로 연락 바랍니다.
-
-※ 화성시 빅데이터팀 (AI·데이터 기반 행정혁신)
-※ 도입·시연 문의: 빅데이터팀`,
-    
-    brief: `[공공행사 VIP 실시간 상황관리 플랫폼]
-
-화성시 빅데이터팀이 자체 개발한
-행사 운영 솔루션입니다.
-
-· 등급별 참석 현황 실시간 가시화
-· VVIP 동선 5단계 추적 (출발→착석)
-· 운영자 카카오톡 즉시 초대
-· 결과보고서 자동 생성
-
-[시제품 시연 문의: 화성시 빅데이터팀]`,
-    
-    guide: `[VIP 행사관리 플랫폼 사용안내]
-
-▣ 시작하기
- ① 접속 → ② 엑셀 명단 업로드 → ③ 운영자 초대
-
-▣ 주요 화면
- · 대시보드 : 실시간 참석 현황
- · 모바일 체크인 : 현장 상태 변경
- · VVIP 현황판 : 의전 동선 추적
- · 좌석 현황 : 구역별 착석 가시화
- · 결과보고 : 자동 요약 보고서
-
-▣ 시연 신청
- 화성시 빅데이터팀으로 연락 주시면
- 정식 배포 일정 및 접속 안내드립니다.
-
-※ 화성시 빅데이터팀`,
-  };
-  
-  const currentMessage = messages[activeTab];
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(platformUrl)}`;
-  
-  const copyLink = async () => {
-    const success = await copyToClipboard(platformUrl);
-    if (success) {
-      setCopiedLink(true);
-      setTimeout(() => setCopiedLink(false), 2000);
-    } else {
-      alert('자동 복사에 실패했습니다. 링크를 길게 눌러 직접 복사해 주세요.');
-    }
-  };
-  
-  const copyMessage = async () => {
-    const success = await copyToClipboard(currentMessage);
-    if (success) {
-      setCopiedText(true);
-      setTimeout(() => setCopiedText(false), 2000);
-    } else {
-      alert('자동 복사에 실패했습니다. 메시지를 길게 눌러 직접 복사해 주세요.');
-    }
-  };
-  
-  const openKakao = () => {
-    copyMessage();
-    setTimeout(() => { window.location.href = 'kakaotalk://'; }, 300);
-  };
-  
-  // Web Share API (모바일 네이티브 공유 시트)
-  const nativeShare = async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: '공공행사 VIP 실시간 상황관리 플랫폼',
-          text: currentMessage,
-          url: platformUrl,
-        });
-      } catch(e) {}
-    } else {
-      copyMessage();
-    }
-  };
-  
-  return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-end md:items-center justify-center p-0 md:p-4" onClick={onClose}>
-      <div className="bg-white w-full md:max-w-lg rounded-t-2xl md:rounded-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-        {/* 헤더 */}
-        <div className="bg-gradient-to-br from-slate-800 to-slate-900 text-white p-5 rounded-t-2xl md:rounded-t-2xl">
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-10 h-10 bg-yellow-400 rounded-lg flex items-center justify-center">
-                <Share2 className="w-5 h-5 text-slate-900" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold">플랫폼 공유</h3>
-                <p className="text-[11px] text-slate-300">동료에게 플랫폼을 카카오톡으로 공유합니다.</p>
-              </div>
-            </div>
-            <button onClick={onClose} className="p-1 hover:bg-white/10 rounded">
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-
-        <div className="p-5">
-          {/* 시제품 안내 배너 */}
-          {isPrototype && (
-            <div className="bg-rose-50 border-l-4 border-rose-500 rounded p-3 mb-4">
-              <div className="flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-                <div className="text-[11px] text-rose-900 leading-relaxed">
-                  <div className="font-bold mb-1">⚠ 시제품 단계 — 외부 직접 접속 불가</div>
-                  <div className="mb-1">현재 본 플랫폼은 시연용 시제품으로, 카카오톡으로 링크를 공유해도 다른 사람은 접속할 수 없습니다.</div>
-                  <div className="font-bold mt-1.5">▣ 외부 공유 시 권장 방법</div>
-                  <div>① 화면 캡처·녹화 후 이미지·영상으로 공유</div>
-                  <div>② Vercel·Netlify 무료 배포 후 정식 URL 발급 (10분 소요)</div>
-                  <div>③ 화성시 정식 인프라 배포 (정식 운영용)</div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* 플랫폼 정보 카드 */}
-          <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 mb-4">
-            <div className="flex items-start gap-3">
-              <div className="w-12 h-12 bg-slate-800 rounded-lg flex items-center justify-center shrink-0">
-                <Building2 className="w-6 h-6 text-white" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-bold text-slate-900">공공행사 VIP 실시간 상황관리 플랫폼</div>
-                <div className="text-[11px] text-slate-600 mt-0.5">화성시 빅데이터팀 · AI·데이터 기반 행정혁신</div>
-                <div 
-                  onClick={copyLink}
-                  className="text-[10px] text-slate-500 mt-1 font-mono break-all cursor-pointer hover:text-slate-800 select-all"
-                  title="클릭하여 복사"
-                >
-                  {platformUrl}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* QR + 링크 */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
-            <div className="bg-white border-2 border-slate-200 rounded-lg p-3 flex flex-col items-center justify-center">
-              <img src={qrUrl} alt="플랫폼 QR" className="w-36 h-36 mb-2" />
-              <div className="text-[10px] text-slate-500 flex items-center gap-1">
-                <QrCode className="w-3 h-3" /> QR로 즉시 접속
-              </div>
-            </div>
-            <div className="space-y-2 flex flex-col">
-              <button
-                onClick={copyLink}
-                className="flex items-center justify-center gap-1.5 px-3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded text-xs font-medium"
-              >
-                {copiedLink ? <><Check className="w-3.5 h-3.5" /> 링크 복사됨</> : <><Link2 className="w-3.5 h-3.5" /> 링크만 복사</>}
-              </button>
-              {typeof navigator !== 'undefined' && navigator.share && (
-                <button
-                  onClick={nativeShare}
-                  className="flex items-center justify-center gap-1.5 px-3 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded text-xs font-medium"
-                >
-                  <Share2 className="w-3.5 h-3.5" /> 시스템 공유
-                </button>
-              )}
-              <div className="bg-emerald-50 border border-emerald-200 rounded p-2 text-[10px] text-emerald-800 flex-1">
-                <div className="font-bold mb-0.5">▣ 공유 가능 대상</div>
-                <div>· 화성시 내·외부 협력기관</div>
-                <div>· 행사 운영 위탁업체</div>
-                <div>· 타 지자체 벤치마킹 요청</div>
-              </div>
-            </div>
-          </div>
-
-          {/* 메시지 템플릿 선택 */}
-          <div className="mb-3">
-            <div className="text-[10px] font-bold text-slate-600 mb-1.5">▣ 공유 메시지 템플릿</div>
-            <div className="grid grid-cols-3 gap-1 mb-2">
-              {[
-                { id: 'intro', label: '상세 소개' },
-                { id: 'brief', label: '간단 안내' },
-                { id: 'guide', label: '사용 가이드' },
-              ].map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`px-2 py-1.5 text-[11px] font-medium rounded transition-colors ${
-                    activeTab === tab.id 
-                      ? 'bg-slate-800 text-white' 
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-            <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-3 max-h-44 overflow-y-auto">
-              <pre className="text-[11px] text-slate-800 whitespace-pre-wrap font-sans leading-relaxed select-all cursor-text">{currentMessage}</pre>
-            </div>
-          </div>
-
-          {/* 메인 액션 */}
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              onClick={copyMessage}
-              className="flex items-center justify-center gap-1.5 px-3 py-3 bg-slate-800 text-white rounded-lg text-xs font-medium hover:bg-slate-900"
-            >
-              {copiedText ? <><Check className="w-4 h-4" /> 복사됨</> : <><Copy className="w-4 h-4" /> 메시지 복사</>}
-            </button>
-            <button
-              onClick={openKakao}
-              className="flex items-center justify-center gap-1.5 px-3 py-3 bg-yellow-400 text-slate-900 rounded-lg text-xs font-bold hover:bg-yellow-500"
-            >
-              <MessageCircle className="w-4 h-4" /> 카카오톡 열기
-            </button>
-          </div>
-
-          {/* 사용 안내 */}
-          <div className="mt-3 bg-slate-50 border border-slate-200 rounded p-2.5 text-[10px] text-slate-600 leading-relaxed">
-            <div className="font-bold text-slate-700 mb-0.5">▣ 사용 안내</div>
-            <div>① 메시지 템플릿 선택 → ② [메시지 복사] 또는 [카카오톡 열기]</div>
-            <div>③ 카카오톡 채팅방에 붙여넣기 → ④ 전송</div>
-            <div className="mt-1 pt-1 border-t border-slate-200 text-slate-500">
-              ※ 본 공유 기능은 플랫폼 자체 안내용이며, 참석자 개인정보는 포함되지 않습니다.
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ============ 엑셀 업로드 ============
-function UploadView() {
-  const [uploaded, setUploaded] = useState(false);
-  return (
-    <div className="max-w-2xl mx-auto">
-      <div className="bg-white border border-slate-200 rounded-lg p-6">
-        <h2 className="text-base font-bold text-slate-900 mb-1">참석자 명단 엑셀 업로드</h2>
-        <p className="text-xs text-slate-500 mb-5">사전 등록된 참석자 명단(.xlsx)을 업로드하면 자동으로 명단이 생성됩니다.</p>
-
-        <div className="border-2 border-dashed border-slate-300 rounded-lg p-8 text-center bg-slate-50">
-          <Upload className="w-10 h-10 text-slate-400 mx-auto mb-3" />
-          <p className="text-sm font-medium text-slate-700 mb-1">엑셀 파일을 끌어다 놓거나 클릭하여 업로드</p>
-          <p className="text-xs text-slate-500 mb-4">.xlsx, .xls 형식 지원 · 최대 10MB</p>
-          <button 
-            onClick={() => setUploaded(true)}
-            className="px-4 py-2 bg-slate-800 text-white text-xs font-medium rounded hover:bg-slate-900"
-          >
-            파일 선택
-          </button>
-          {uploaded && (
-            <div className="mt-4 inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-100 text-emerald-700 rounded text-xs">
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              샘플 데이터 85건이 적용되었습니다.
-            </div>
-          )}
-        </div>
-
-        <div className="mt-5 bg-amber-50 border border-amber-200 rounded p-3 text-xs text-amber-800">
-          <div className="font-bold mb-1">▣ 필수 컬럼 (양식)</div>
-          <div className="font-mono text-[11px]">성명 | 등급(VVIP/VIP/일반/관계자) | 소속 | 직위 | 차량번호 | 좌석번호 | 담당자</div>
-        </div>
-
-        <div className="mt-3 text-[10px] text-slate-500">
-          ※ 개인정보보호법에 따라 행사 종료 후 30일 이내 자동 파기됩니다.
-        </div>
+      <div className="bg-white border border-slate-200 rounded-lg p-3 flex flex-col">
+        <div className="flex items-center justify-between mb-2"><h2 className="text-sm font-bold">보고용 요약문</h2><button onClick={() => navigator.clipboard?.writeText(text).then(() => notify('복사되었습니다'))} className="text-xs px-2 py-1 rounded border border-slate-300 flex items-center gap-1"><Copy className="w-3 h-3" />복사</button></div>
+        <textarea readOnly value={text} className="flex-1 min-h-[300px] text-xs font-mono border border-slate-200 rounded p-2 bg-slate-50" />
       </div>
     </div>
   );
