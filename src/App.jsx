@@ -7,7 +7,7 @@ import { Users, Crown, MapPin, Clock, BarChart3, Mic2, FileText, Bell, X, Lock, 
 // =====================================================================
 
 const STORE_KEY = 'mars-vip-platform-v2';
-const APP_VERSION = '3.1.1';
+const APP_VERSION = '3.2.0';
 
 // ---------- 초기 자료 ----------
 const DEFAULT_EVENT = {
@@ -156,16 +156,44 @@ const mergeState = (local, remote) => {
     speechOrder: (meta.speechOrder || []).filter(id => byId.has(id)), introOrder: [...(meta.introOrder || []).filter(id => byId.has(id)), ...attendees.map(a => a.id).filter(id => !(meta.introOrder || []).includes(id))] };
 };
 const syncHeaders = (pin) => ({ apikey: SYNC.key, Authorization: `Bearer ${SYNC.key}`, 'Content-Type': 'application/json', ...(pin ? { 'x-event-pin': pin } : {}) });
+const ROW = `${SYNC.url}/rest/v1/${SYNC.table}?id=eq.${SYNC.id}`;
+// 바뀐 시각만 먼저 확인(수십 바이트) → 바뀌었을 때만 전체 자료를 받음
+const syncHead = async () => {
+  const r = await fetch(`${ROW}&select=updated_at`, { headers: syncHeaders() });
+  if (!r.ok) throw new Error('head ' + r.status);
+  const rows = await r.json(); return rows[0]?.updated_at || null;
+};
 const syncPull = async () => {
-  const r = await fetch(`${SYNC.url}/rest/v1/${SYNC.table}?id=eq.${SYNC.id}&select=data`, { headers: syncHeaders() });
+  const r = await fetch(`${ROW}&select=data,updated_at`, { headers: syncHeaders() });
   if (!r.ok) throw new Error('pull ' + r.status);
-  const rows = await r.json(); return rows[0]?.data || null;
+  const rows = await r.json(); return rows[0] || null;
 };
+// 쓰기: 비밀번호가 맞을 때만 서버가 수정해 줌(틀리면 0건)
 const syncPush = async (data, pin) => {
-  const r = await fetch(`${SYNC.url}/rest/v1/${SYNC.table}?on_conflict=id`, { method: 'POST', headers: { ...syncHeaders(pin), Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify({ id: SYNC.id, pin, data, updated_at: new Date().toISOString() }) });
+  const r = await fetch(`${ROW}&select=updated_at`, { method: 'PATCH', headers: { ...syncHeaders(pin), Prefer: 'return=representation' }, body: JSON.stringify({ data, updated_at: new Date().toISOString() }) });
   if (!r.ok) throw new Error('push ' + r.status);
+  const rows = await r.json(); if (!rows.length) throw new Error('PIN'); return rows[0].updated_at;
 };
-const stripLocal = (s) => { const { seatLayout, ...rest } = s; return rest; }; // 배치는 기기별 설정
+const syncCheckPin = async (pin) => {
+  const head = await syncHead();
+  const r = await fetch(`${ROW}&select=updated_at`, { method: 'PATCH', headers: { ...syncHeaders(pin), Prefer: 'return=representation' }, body: JSON.stringify({ updated_at: head }) });
+  if (!r.ok) return false; const rows = await r.json(); return rows.length > 0;
+};
+const syncChangePin = async (oldPin, newPin) => {
+  const r = await fetch(`${SYNC.url}/rest/v1/rpc/event_change_pin`, { method: 'POST', headers: syncHeaders(), body: JSON.stringify({ p_id: SYNC.id, p_old: oldPin, p_new: newPin }) });
+  if (r.ok) return (await r.json()) === true;
+  if (r.status === 404) { // 서버 함수가 아직 없으면 직접 수정
+    const r2 = await fetch(`${ROW}&select=updated_at`, { method: 'PATCH', headers: { ...syncHeaders(oldPin), Prefer: 'return=representation' }, body: JSON.stringify({ pin: newPin }) });
+    if (!r2.ok) return false; return (await r2.json()).length > 0;
+  }
+  return false;
+};
+const stripLocal = (s) => { const { seatLayout, adminPin, ...rest } = s; return rest; }; // 배치는 기기별, 비밀번호는 절대 공유 안 함
+const pinStore = {
+  get: () => { try { return sessionStorage.getItem('mars-pin') || localStorage.getItem('mars-pin') || ''; } catch { return ''; } },
+  set: (v, keep) => { try { sessionStorage.setItem('mars-pin', v); if (keep) localStorage.setItem('mars-pin', v); } catch {} },
+  clear: () => { try { sessionStorage.removeItem('mars-pin'); localStorage.removeItem('mars-pin'); } catch {} },
+};
 
 const EMBEDDED = typeof window !== 'undefined' && window.self !== window.top;
 const nowHM = () => { const d = new Date(); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
@@ -177,7 +205,7 @@ const honor = (a) => `${a.organization} ${a.name} ${a.position}님`;
 // =====================================================================
 export default function App() {
   const [state, setState] = useState(loadState);
-  const [isAdmin, setIsAdmin] = useState(() => sessionStorage.getItem('mars-admin') === '1' || localStorage.getItem('mars-admin-keep') === '1');
+  const [isAdmin, setIsAdmin] = useState(() => { const flag = sessionStorage.getItem('mars-admin') === '1' || localStorage.getItem('mars-admin-keep') === '1'; return SYNC_ON ? flag && !!pinStore.get() : flag; });
   const [view, setView] = useState('board');
   const [loginOpen, setLoginOpen] = useState(false);
   const [quickAdd, setQuickAdd] = useState(false);
@@ -190,32 +218,58 @@ export default function App() {
   const remoteRef = useRef(null); // 마지막으로 서버와 맞춘 내용(문자열)
   const pushTimer = useRef(null);
 
-  // 서버 → 내 기기
-  const pull = async () => {
+  const isAdminRef = useRef(isAdmin); isAdminRef.current = isAdmin;
+  const lastUpRef = useRef(null);   // 서버 자료의 마지막 수정 시각
+  const busyRef = useRef(false);
+  const kickOut = () => { setIsAdmin(false); pinStore.clear(); try { sessionStorage.removeItem('mars-admin'); localStorage.removeItem('mars-admin-keep'); } catch {} setToast('관리자 비밀번호가 바뀌었습니다. 다시 입장하세요'); };
+
+  // 서버 → 내 기기 (바뀐 경우에만 내려받음)
+  const pull = async (force) => {
+    if (busyRef.current) return;
+    if (!force && typeof document !== 'undefined' && document.hidden) return; // 화면 꺼진 핸드폰은 쉼
     try {
-      const remote = await syncPull();
-      if (remote) {
-        const merged = mergeState(stripLocal(stateRef.current), remote);
+      busyRef.current = true;
+      const head = await syncHead();
+      if (!force && head && head === lastUpRef.current) { setSync(x => ({ ...x, status: '연결됨', at: nowHM(), err: null })); return; }
+      const row = await syncPull();
+      if (row && row.data) {
+        lastUpRef.current = row.updated_at;
+        const remote = stripLocal(row.data);
+        const merged = stripLocal(mergeState(stripLocal(stateRef.current), remote));
         const mergedStr = JSON.stringify(merged);
-        if (JSON.stringify(stripLocal(stateRef.current)) !== mergedStr) setState(s => ({ ...merged, seatLayout: s.seatLayout }));
+        if (JSON.stringify(stripLocal(stateRef.current)) !== mergedStr) setState(s => ({ ...merged, seatLayout: s.seatLayout, adminPin: s.adminPin }));
         remoteRef.current = JSON.stringify(remote);
+        if (isAdminRef.current && mergedStr !== remoteRef.current) { clearTimeout(pushTimer.current); pushTimer.current = setTimeout(push, 300); } // 서로 엇갈린 수정 복구
       }
       setSync(x => ({ ...x, status: '연결됨', at: nowHM(), err: null }));
     } catch (e) { setSync(x => ({ ...x, status: '연결 안 됨', err: String(e.message || e) })); }
+    finally { busyRef.current = false; }
   };
   // 내 기기 → 서버 (관리자만)
   const push = async () => {
-    if (!isAdmin) return;
+    if (!isAdminRef.current) return;
+    const pin = pinStore.get(); if (!pin) return kickOut();
     try {
-      const remote = await syncPull();
-      const merged = mergeState(stripLocal(stateRef.current), remote);
+      const row = await syncPull();
+      const remote = row?.data ? stripLocal(row.data) : null;
+      const merged = stripLocal(mergeState(stripLocal(stateRef.current), remote));
       const mergedStr = JSON.stringify(merged);
-      if (JSON.stringify(stripLocal(stateRef.current)) !== mergedStr) setState(s => ({ ...merged, seatLayout: s.seatLayout }));
-      if (remoteRef.current !== mergedStr) { await syncPush(merged, merged.adminPin); remoteRef.current = mergedStr; }
+      if (JSON.stringify(stripLocal(stateRef.current)) !== mergedStr) setState(s => ({ ...merged, seatLayout: s.seatLayout, adminPin: s.adminPin }));
+      if (JSON.stringify(row?.data || null) !== mergedStr) { lastUpRef.current = await syncPush(merged, pin); remoteRef.current = mergedStr; }
       setSync(x => ({ ...x, status: '연결됨', at: nowHM(), err: null }));
-    } catch (e) { setSync(x => ({ ...x, status: '저장 실패', err: String(e.message || e) })); }
+    } catch (e) {
+      if (String(e.message) === 'PIN') return kickOut();
+      setSync(x => ({ ...x, status: '저장 실패', err: String(e.message || e) }));
+    }
   };
-  useEffect(() => { if (!SYNC_ON) return; pull(); const t = setInterval(pull, 4000); return () => clearInterval(t); }, []);
+  useEffect(() => {
+    if (!SYNC_ON) return;
+    pull(true);
+    const t = setInterval(() => pull(false), 4000);
+    const onVis = () => { if (!document.hidden) pull(true); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => { clearInterval(t); document.removeEventListener('visibilitychange', onVis); };
+  }, []);
   useEffect(() => {
     if (!SYNC_ON || !isAdmin) return;
     if (JSON.stringify(stripLocal(state)) === remoteRef.current) return;
@@ -277,11 +331,22 @@ export default function App() {
       rate: total ? Math.round(present / total * 100) : 0 };
   }, [attendees]);
 
-  const login = (pin, keep) => {
-    if (pin === state.adminPin) { setIsAdmin(true); sessionStorage.setItem('mars-admin', '1'); if (keep) localStorage.setItem('mars-admin-keep', '1'); setLoginOpen(false); notify('관리자 모드로 전환되었습니다'); return true; }
-    return false;
+  const login = async (pin, keep) => {
+    let ok = false;
+    if (SYNC_ON) { try { ok = await syncCheckPin(pin); } catch { ok = false; } }
+    else ok = pin === state.adminPin;
+    if (!ok) return false;
+    pinStore.set(pin, keep);
+    setIsAdmin(true); sessionStorage.setItem('mars-admin', '1'); if (keep) localStorage.setItem('mars-admin-keep', '1');
+    setLoginOpen(false); notify('관리자 모드로 전환되었습니다'); return true;
   };
-  const logout = () => { setIsAdmin(false); sessionStorage.removeItem('mars-admin'); localStorage.removeItem('mars-admin-keep'); if (['manage', 'settings'].includes(view)) setView('board'); notify('조회 모드로 전환되었습니다'); };
+  const changePin = async (newPin) => {
+    if (!SYNC_ON) { patchMeta(() => ({ adminPin: newPin })); return true; }
+    const ok = await syncChangePin(pinStore.get(), newPin);
+    if (ok) pinStore.set(newPin, localStorage.getItem('mars-admin-keep') === '1');
+    return ok;
+  };
+  const logout = () => { setIsAdmin(false); pinStore.clear(); sessionStorage.removeItem('mars-admin'); localStorage.removeItem('mars-admin-keep'); if (['manage', 'settings'].includes(view)) setView('board'); notify('조회 모드로 전환되었습니다'); };
 
   const tabs = [
     { id: 'board', label: '현황판', icon: BarChart3 },
@@ -343,7 +408,7 @@ export default function App() {
         {view === 'seat' && <SeatView attendees={attendees} layout={state.seatLayout} setLayout={l => patchMeta(s => ({ seatLayout: typeof l === 'function' ? l(s.seatLayout) : l }))} isAdmin={isAdmin} setStatus={setStatus} toggleSpeech={toggleSpeech} toggleIntro={toggleIntro} updateAttendee={updateAttendee} patch={fn => patchMeta(s => { const r = fn(s); if (r.attendees) { const before = new Map(s.attendees.map(a => [a.id, a.seat])); r.attendees = r.attendees.map(a => before.get(a.id) !== a.seat ? { ...a, u: now() } : a); } return r; })} notify={notify} askUser={askUser} />}
         {view === 'report' && <ReportView stats={stats} attendees={attendees} event={event} speechOrder={speechOrder} notify={notify} />}
         {view === 'manage' && isAdmin && <ManageView onQuickAdd={() => setQuickAdd(true)} attendees={attendees} updateAttendee={updateAttendee} addAttendee={addAttendee} removeAttendee={removeAttendee} setStatus={setStatus} toggleSpeech={toggleSpeech} toggleIntro={toggleIntro} notify={notify} askUser={askUser} patch={(fn) => patchMeta(s => { const r = fn(s); if (r.attendees) r.attendees = r.attendees.map(a => ({ ...a, u: now() })); return r; })} />}
-        {view === 'settings' && isAdmin && <SettingsView state={state} patch={patchMeta} setState={setState} notify={notify} sync={sync} askUser={askUser} />}
+        {view === 'settings' && isAdmin && <SettingsView state={state} patch={patchMeta} setState={setState} notify={notify} sync={sync} askUser={askUser} changePin={changePin} />}
       </main>
 
       <footer className="print:hidden max-w-7xl mx-auto px-3 py-2 text-[10px] text-slate-400 flex justify-between gap-2 whitespace-nowrap overflow-hidden">
@@ -401,16 +466,17 @@ function LoginModal({ onClose, onLogin }) {
   const [pin, setPin] = useState('');
   const [err, setErr] = useState(false);
   const [keep, setKeep] = useState(true);
-  const submit = (e) => { e.preventDefault(); if (!onLogin(pin, keep)) { setErr(true); setPin(''); } };
+  const [busy, setBusy] = useState(false);
+  const submit = async (e) => { e.preventDefault(); if (busy || !pin) return; setBusy(true); const ok = await onLogin(pin, keep); setBusy(false); if (!ok) { setErr(true); setPin(''); } };
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <form onSubmit={submit} onClick={e => e.stopPropagation()} className="bg-white rounded-lg p-5 w-full max-w-xs shadow-xl">
         <div className="flex items-center gap-2 mb-3"><Lock className="w-4 h-4 text-rose-600" /><h3 className="font-bold text-sm">관리자 모드 입장</h3><button type="button" onClick={onClose} className="ml-auto text-slate-400"><X className="w-4 h-4" /></button></div>
-        <input autoFocus type="password" inputMode="numeric" value={pin} onChange={e => { setPin(e.target.value); setErr(false); }} placeholder="비밀번호" className="w-full border border-slate-300 rounded px-3 py-2 text-sm mb-2 text-center tracking-widest" />
+        <input autoFocus type="password" value={pin} onChange={e => { setPin(e.target.value); setErr(false); }} placeholder="비밀번호" className="w-full border border-slate-300 rounded px-3 py-2 text-sm mb-2 text-center tracking-widest" />
         {err && <div className="text-xs text-rose-600 mb-2">비밀번호가 맞지 않습니다</div>}
         <label className="flex items-center gap-1.5 text-xs text-slate-600 mb-3 cursor-pointer"><input type="checkbox" checked={keep} onChange={e => setKeep(e.target.checked)} />이 기기에서 계속 관리자로 유지 (운영 태블릿·노트북)</label>
-        <button className="w-full bg-rose-600 text-white rounded py-2 text-sm font-semibold hover:bg-rose-700">입장</button>
-        <p className="text-[10px] text-slate-400 mt-2">초기 비밀번호 1234 · 설정에서 변경하세요</p>
+        <button disabled={busy} className="w-full bg-rose-600 text-white rounded py-2 text-sm font-semibold hover:bg-rose-700 disabled:opacity-60">{busy ? '확인 중…' : '입장'}</button>
+        <p className="text-[10px] text-slate-400 mt-2">비밀번호는 서버에서 확인합니다. 모르면 담당자에게 문의하세요.</p>
       </form>
     </div>
   );
@@ -1082,7 +1148,7 @@ function ManageView({ onQuickAdd, attendees, updateAttendee, addAttendee, remove
 // =====================================================================
 // 설정 (관리자)
 // =====================================================================
-function SettingsView({ state, patch, setState, notify, sync, askUser }) {
+function SettingsView({ state, patch, setState, notify, sync, askUser, changePin }) {
   const [ev, setEv] = useState(state.event);
   const [prog, setProg] = useState(state.program.map(p => `${p.time} | ${p.dur} | ${p.title} | ${p.note}`).join('\n'));
   const [pin1, setPin1] = useState(''); const [pin2, setPin2] = useState('');
@@ -1093,9 +1159,15 @@ function SettingsView({ state, patch, setState, notify, sync, askUser }) {
     const program = prog.split('\n').map(l => l.trim()).filter(Boolean).map((l, i) => { const c = l.split('|').map(x => x.trim()); return { id: 'p' + (i + 1), time: c[0] || '', dur: Number(c[1]) || 0, title: c[2] || '', note: c[3] || '' }; });
     patch(() => ({ program })); notify('식순을 저장했습니다');
   };
-  const savePin = () => { if (pin1.length < 4) return notify('4자리 이상 입력하세요'); if (pin1 !== pin2) return notify('두 입력이 다릅니다'); patch(() => ({ adminPin: pin1 })); setPin1(''); setPin2(''); notify('비밀번호를 변경했습니다'); };
+  const savePin = async () => {
+    if (pin1.length < 6) return notify('6자리 이상, 영문과 숫자를 섞어 입력하세요');
+    if (pin1 !== pin2) return notify('두 입력이 다릅니다');
+    const ok = await changePin(pin1);
+    if (!ok) return notify('변경하지 못했습니다. 다시 입장한 뒤 시도하세요');
+    setPin1(''); setPin2(''); notify('비밀번호를 변경했습니다. 다른 관리자 기기는 새 비밀번호로 다시 입장해야 합니다');
+  };
   const backup = () => {
-    const url = URL.createObjectURL(new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' }));
+    const url = URL.createObjectURL(new Blob([JSON.stringify(stripLocal(state), null, 2)], { type: 'application/json' }));
     const a = document.createElement('a'); a.href = url; a.download = `내빈플랫폼_백업_${new Date().toISOString().slice(0, 16).replace(/[:T]/g, '')}.json`; a.click();
   };
   const restore = (f) => { const r = new FileReader(); r.onload = () => { try { const s = JSON.parse(r.result); if (!s.attendees) throw 0; setState({ ...DEFAULT_STATE(), ...s }); notify('복원했습니다'); } catch { notify('파일 형식이 올바르지 않습니다'); } }; r.readAsText(f); };
