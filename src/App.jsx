@@ -7,7 +7,7 @@ import { Users, Crown, MapPin, Clock, BarChart3, Mic2, FileText, Bell, X, Lock, 
 // =====================================================================
 
 const STORE_KEY = 'mars-vip-platform-v2';
-const APP_VERSION = '3.3.1';
+const APP_VERSION = '3.5.0';
 
 // ---------- 초기 자료 ----------
 const DEFAULT_EVENT = {
@@ -219,6 +219,18 @@ const pinStore = {
 const EMBEDDED = typeof window !== 'undefined' && window.self !== window.top;
 const nowHM = () => { const d = new Date(); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
 const iga = (w) => { const c = (w || '').charCodeAt((w || '').length - 1) - 0xAC00; return c >= 0 && c <= 11171 && c % 28 ? '이' : '가'; };
+// 인사말씀 대상: 순서 목록 + (다른 기기와 엇갈려 빠진) 대상자를 뒤에 덧붙임
+const speakerList = (attendees, speechOrder) => {
+  const inOrder = speechOrder.map(id => attendees.find(a => a.id === id)).filter(a => a && a.speech);
+  const extra = attendees.filter(a => a.speech && !speechOrder.includes(a.id));
+  return [...inOrder, ...extra];
+};
+const copyText = async (text, notify, fallbackId) => {
+  try { await navigator.clipboard.writeText(text); notify('복사했습니다'); }
+  catch { const el = fallbackId && document.getElementById(fallbackId); if (el) { el.focus(); el.select(); } notify('복사가 막혀 있습니다. 글자를 길게 눌러 복사하세요'); }
+};
+const verNum = v => String(v || '0').split('.').map(Number).reduce((acc, n) => acc * 1000 + (n || 0), 0);
+const lsSafe = { get: (k, d) => { try { return localStorage.getItem(k) ?? d; } catch { return d; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch {} } };
 const honor = (a) => `${a.organization} ${a.name} ${a.position}님`;
 
 // =====================================================================
@@ -242,6 +254,8 @@ export default function App() {
   const isAdminRef = useRef(isAdmin); isAdminRef.current = isAdmin;
   const lastUpRef = useRef(null);   // 서버 자료의 마지막 수정 시각
   const busyRef = useRef(false);
+  const pendingRef = useRef(false);  // 연결 끊긴 동안 못 올린 변경이 있음
+  const [newVer, setNewVer] = useState(null);
   const kickOut = () => { setIsAdmin(false); pinStore.clear(); try { sessionStorage.removeItem('mars-admin'); localStorage.removeItem('mars-admin-keep'); } catch {} setToast('관리자 비밀번호가 바뀌었습니다. 다시 입장하세요'); };
 
   // 서버 → 내 기기 (바뀐 경우에만 내려받음)
@@ -251,10 +265,12 @@ export default function App() {
     try {
       busyRef.current = true;
       const head = await syncHead();
+      if (isAdminRef.current && pendingRef.current) { clearTimeout(pushTimer.current); pushTimer.current = setTimeout(push, 100); } // 연결 복구 → 밀린 변경 올리기
       if (!force && head && head === lastUpRef.current) { setSync(x => ({ ...x, status: '연결됨', at: nowHM(), err: null })); return; }
       const row = await syncPull();
       if (row && row.data) {
         lastUpRef.current = row.updated_at;
+        if (row.data.appVersion && verNum(row.data.appVersion) > verNum(APP_VERSION)) setNewVer(row.data.appVersion);
         const remote = stripLocal(row.data);
         const merged = stripLocal(mergeState(stripLocal(stateRef.current), remote));
         const mergedStr = JSON.stringify(merged);
@@ -273,13 +289,17 @@ export default function App() {
     try {
       const row = await syncPull();
       const remote = row?.data ? stripLocal(row.data) : null;
+      if (row?.data?.appVersion && verNum(row.data.appVersion) > verNum(APP_VERSION)) { setNewVer(row.data.appVersion); return; } // 옛 화면은 새 자료를 덮어쓰지 않음
       const merged = stripLocal(mergeState(stripLocal(stateRef.current), remote));
+      merged.appVersion = APP_VERSION;
       const mergedStr = JSON.stringify(merged);
       if (JSON.stringify(stripLocal(stateRef.current)) !== mergedStr) setState(s => ({ ...merged, seatLayout: s.seatLayout, adminPin: s.adminPin }));
       if (JSON.stringify(row?.data || null) !== mergedStr) { lastUpRef.current = await syncPush(merged, pin); remoteRef.current = mergedStr; }
+      pendingRef.current = false;
       setSync(x => ({ ...x, status: '연결됨', at: nowHM(), err: null }));
     } catch (e) {
       if (String(e.message) === 'PIN') return kickOut();
+      pendingRef.current = true;
       setSync(x => ({ ...x, status: '저장 실패', err: String(e.message || e) }));
     }
   };
@@ -436,6 +456,8 @@ export default function App() {
         </nav>
       </header>
 
+      {newVer && <div className="print:hidden bg-indigo-600 text-white text-xs sm:text-sm px-3 py-1.5 flex items-center gap-2"><span>새 버전(v{newVer})이 나왔습니다.</span><button onClick={() => location.reload()} className="ml-auto bg-white text-indigo-700 font-bold rounded px-2 py-0.5">새로고침</button></div>}
+      {sync.on && sync.status !== '연결됨' && sync.status !== '연결 중' && <div className="print:hidden bg-rose-600 text-white text-xs px-3 py-1.5 flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-white animate-pulse shrink-0" /><span><b>서버 연결 끊김</b> — {isAdmin ? '체크한 내용은 이 기기에 보관되고, 연결되면 자동으로 올라갑니다.' : '화면이 최신이 아닐 수 있습니다.'}</span></div>}
       <main className="print:hidden max-w-7xl mx-auto p-3 md:p-4">
         {!isAdmin && ['board', 'seat', 'speech'].includes(view) && (
           <div className="mb-3 flex items-center gap-3 rounded-lg border-2 border-amber-400 bg-amber-50 px-3 py-2 text-sm">
@@ -444,11 +466,11 @@ export default function App() {
             <button onClick={() => setLoginOpen(true)} className="btn bg-amber-500 text-white hover:bg-amber-600 ml-auto shrink-0"><LogIn className="w-3.5 h-3.5" />관리자 입장</button>
           </div>
         )}
-        {view === 'board' && <BoardView attendees={attendees} stats={stats} program={program} isAdmin={isAdmin} setStatus={setStatus} toggleSpeech={toggleSpeech} toggleIntro={toggleIntro} updateAttendee={updateAttendee} printSpeech={() => { if (EMBEDDED) { notify('인쇄는 노트북의 HTML 파일(또는 새 창)에서 하세요. 자료는 공유되어 있습니다'); return; } window.__printMode = 'speech'; window.dispatchEvent(new Event('printmode')); setTimeout(() => window.print(), 50); }} />}
+        {view === 'board' && <BoardView attendees={attendees} stats={stats} program={program} isAdmin={isAdmin} setStatus={setStatus} toggleSpeech={toggleSpeech} toggleIntro={toggleIntro} updateAttendee={updateAttendee} printSpeech={() => { if (EMBEDDED) { notify('인쇄는 노트북의 HTML 파일(또는 새 창)에서 하세요. 자료는 공유되어 있습니다'); return; } window.__printMode = 'speech'; window.__printOnly = false; window.dispatchEvent(new Event('printmode')); setTimeout(() => window.print(), 50); }} />}
         {view === 'speech' && <SpeechView attendees={attendees} speechOrder={speechOrder} introOrder={introOrder} isAdmin={isAdmin}
           setSpeechOrder={o => patchMeta(() => ({ speechOrder: o }))} setIntroOrder={o => patchMeta(() => ({ introOrder: o }))}
           updateAttendee={updateAttendee} toggleSpeech={toggleSpeech} toggleIntro={toggleIntro} notify={notify} />}
-        {view === 'seat' && <SeatView attendees={attendees} layout={state.seatLayout} setLayout={l => patchMeta(s => ({ seatLayout: typeof l === 'function' ? l(s.seatLayout) : l }))} isAdmin={isAdmin} setStatus={setStatus} toggleSpeech={toggleSpeech} toggleIntro={toggleIntro} updateAttendee={updateAttendee} patch={fn => patchMeta(s => { const r = fn(s); if (r.attendees) { const before = new Map(s.attendees.map(a => [a.id, a.seat])); r.attendees = r.attendees.map(a => before.get(a.id) !== a.seat ? { ...a, u: now() } : a); } return r; })} notify={notify} askUser={askUser} />}
+        {view === 'seat' && <SeatView attendees={attendees} layout={state.seatLayout} setLayout={l => patch(s => ({ seatLayout: typeof l === 'function' ? l(s.seatLayout) : l }))} isAdmin={isAdmin} setStatus={setStatus} toggleSpeech={toggleSpeech} toggleIntro={toggleIntro} updateAttendee={updateAttendee} patch={fn => patchMeta(s => { const r = fn(s); if (r.attendees) { const before = new Map(s.attendees.map(a => [a.id, a.seat])); r.attendees = r.attendees.map(a => before.get(a.id) !== a.seat ? { ...a, u: now() } : a); } return r; })} notify={notify} askUser={askUser} />}
         {view === 'report' && <ReportView stats={stats} attendees={attendees} event={event} speechOrder={speechOrder} notify={notify} />}
         {view === 'manage' && isAdmin && <ManageView applyProtocol={applyProtocol} onQuickAdd={() => setQuickAdd(true)} attendees={attendees} updateAttendee={updateAttendee} addAttendee={addAttendee} removeAttendee={removeAttendee} setStatus={setStatus} toggleSpeech={toggleSpeech} toggleIntro={toggleIntro} notify={notify} askUser={askUser} patch={(fn) => patchMeta(s => { const r = fn(s); if (r.attendees) r.attendees = r.attendees.map(a => ({ ...a, u: now() })); return r; })} />}
         {view === 'settings' && isAdmin && <SettingsView state={state} patch={patchMeta} setState={setState} notify={notify} sync={sync} askUser={askUser} changePin={changePin} />}
@@ -531,9 +553,9 @@ function LoginModal({ onClose, onLogin }) {
 function BoardView({ attendees, stats, program, isAdmin, setStatus, toggleSpeech, toggleIntro, updateAttendee, printSpeech }) {
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState('전체');
-  const [big, setBig] = useState(() => localStorage.getItem('mars-big') === '1');
+  const [big, setBig] = useState(() => lsSafe.get('mars-big', '0') === '1');
   const [sheet, setSheet] = useState(null);
-  useEffect(() => { localStorage.setItem('mars-big', big ? '1' : '0'); }, [big]);
+  useEffect(() => { lsSafe.set('mars-big', big ? '1' : '0'); }, [big]);
   const [clock, setClock] = useState(nowHM());
   useEffect(() => { const t = setInterval(() => setClock(nowHM()), 15000); return () => clearInterval(t); }, []);
 
@@ -784,7 +806,7 @@ function SpeechView({ attendees, speechOrder, introOrder, setSpeechOrder, setInt
   const [presentOnly, setPresentOnly] = useState(false);
   const [addId, setAddId] = useState('');
 
-  const speakers = speechOrder.map(id => attendees.find(a => a.id === id)).filter(Boolean);
+  const speakers = speakerList(attendees, speechOrder);
   const introIds = introOrder.filter(id => attendees.find(a => a.id === id)?.intro);
   const intros = introIds.map(id => attendees.find(a => a.id === id));
   const presentSpeakers = speakers.filter(a => PRESENT.includes(a.status));
@@ -799,7 +821,7 @@ function SpeechView({ attendees, speechOrder, introOrder, setSpeechOrder, setInt
     return groups.map(g => `[${g.cat}]\n` + g.items.map(a => ` · ${honor(a)}`).join('\n')).join('\n') + '\n\n이상 참석해 주신 내빈 여러분께 감사의 박수를 부탁드립니다.';
   })();
 
-  const copy = (t) => { navigator.clipboard?.writeText(t).then(() => notify('복사되었습니다')); };
+  const copy = (t) => copyText(t, notify, 'mc-script');
   const candidates = attendees.filter(a => tab === 'speech' ? !a.speech : !a.intro);
 
   return (
@@ -843,10 +865,10 @@ function SpeechView({ attendees, speechOrder, introOrder, setSpeechOrder, setInt
             <h2 className="text-sm font-bold">사회자 멘트 (자동 작성)</h2>
             <div className="flex gap-1">
               <button onClick={() => copy(tab === 'speech' ? speechScript : introScript)} className="btn btn-outline"><Copy className="w-3 h-3" />복사</button>
-              <button onClick={() => { if (EMBEDDED) { notify('인쇄는 노트북의 HTML 파일에서 하세요. 자료는 공유되어 있습니다'); return; } window.__printMode = tab; window.dispatchEvent(new Event('printmode')); setTimeout(() => window.print(), 50); }} className="btn btn-primary"><Printer className="w-3 h-3" />인쇄</button>
+              <button onClick={() => { if (EMBEDDED) { notify('인쇄는 노트북의 HTML 파일에서 하세요. 자료는 공유되어 있습니다'); return; } window.__printMode = tab; window.__printOnly = presentOnly; window.dispatchEvent(new Event('printmode')); setTimeout(() => window.print(), 50); }} className="btn btn-primary"><Printer className="w-3 h-3" />인쇄</button>
             </div>
           </div>
-          <textarea readOnly value={tab === 'speech' ? speechScript : introScript} className="flex-1 min-h-[280px] text-xs font-mono border border-slate-200 rounded p-2 bg-slate-50 leading-relaxed" />
+          <textarea id="mc-script" readOnly value={tab === 'speech' ? speechScript : introScript} className="flex-1 min-h-[280px] text-xs font-mono border border-slate-200 rounded p-2 bg-slate-50 leading-relaxed" />
           <p className="text-[10px] text-slate-400 mt-1">순서·참석 여부가 바뀌면 멘트가 바로 다시 작성됩니다. 미참석 내빈은 붉게 표시됩니다.</p>
         </div>
       </div>
@@ -1226,8 +1248,15 @@ function SettingsView({ state, patch, setState, notify, sync, askUser, changePin
     const url = URL.createObjectURL(new Blob([JSON.stringify(stripLocal(state), null, 2)], { type: 'application/json' }));
     const a = document.createElement('a'); a.href = url; a.download = `내빈플랫폼_백업_${new Date().toISOString().slice(0, 16).replace(/[:T]/g, '')}.json`; a.click();
   };
-  const restore = (f) => { const r = new FileReader(); r.onload = () => { try { const s = JSON.parse(r.result); if (!s.attendees) throw 0; setState({ ...DEFAULT_STATE(), ...s }); notify('복원했습니다'); } catch { notify('파일 형식이 올바르지 않습니다'); } }; r.readAsText(f); };
-  const resetAll = async () => { if (await askUser('모든 자료를 초기 상태(RSVP 43명)로 되돌립니다. 백업을 먼저 받으셨나요?')) { setState(DEFAULT_STATE()); notify('초기화했습니다'); } };
+  // 다른 기기와 합칠 때 이 자료가 이기도록 모든 항목에 새 시각을 찍고, 없어진 사람은 삭제 표시
+  const stampAll = (next) => setState(prev => {
+    const t = Date.now(); const keep = new Set(next.attendees.map(a => a.id));
+    const tomb = { ...(prev.tombstones || {}) }; prev.attendees.forEach(a => { if (!keep.has(a.id)) tomb[a.id] = t; });
+    Object.keys(tomb).forEach(k => { if (keep.has(Number(k))) delete tomb[k]; });
+    return { ...next, attendees: next.attendees.map(a => ({ ...a, u: t })), tombstones: tomb, metaAt: t, seatLayout: prev.seatLayout, adminPin: prev.adminPin, nextId: Math.max(next.nextId || 0, prev.nextId || 0) };
+  });
+  const restore = (f) => { const r = new FileReader(); r.onload = async () => { try { const s = JSON.parse(r.result); if (!s.attendees) throw 0; if (!(await askUser(`백업 파일(${s.attendees.length}명)로 모든 기기의 자료를 바꿉니다. 계속할까요?`))) return; stampAll({ ...DEFAULT_STATE(), ...s }); notify('복원했습니다'); } catch { notify('파일 형식이 올바르지 않습니다'); } }; r.readAsText(f); };
+  const resetAll = async () => { if (await askUser('모든 기기의 자료를 초기 상태(RSVP 43명)로 되돌립니다. 백업을 먼저 받으셨나요?')) { stampAll(DEFAULT_STATE()); notify('초기화했습니다'); } };
   const box = 'card p-3';
   const inp = 'w-full border border-slate-300 rounded px-2 py-1.5 text-xs';
 
@@ -1275,7 +1304,7 @@ function SettingsView({ state, patch, setState, notify, sync, askUser, changePin
 // 결과 요약
 // =====================================================================
 function ReportView({ stats, attendees, event, speechOrder, notify }) {
-  const speakers = speechOrder.map(id => attendees.find(a => a.id === id)).filter(Boolean);
+  const speakers = speakerList(attendees, speechOrder);
   const text = `▣ ${event.name} 내빈 참석 결과 (${new Date().toLocaleString('ko-KR')} 기준)
  · 초청 내빈 : ${stats.total}명
  · 참석 : ${stats.present}명 (${stats.rate}%) — 착석 ${stats.seated}, 도착 ${stats.arrived}
@@ -1299,8 +1328,8 @@ ${attendees.filter(a => !PRESENT.includes(a.status)).map(a => ` · ${honor(a)} (
         </table>
       </div>
       <div className="card p-3 flex flex-col">
-        <div className="flex items-center justify-between mb-2"><h2 className="text-sm font-bold">보고용 요약문</h2><button onClick={() => navigator.clipboard?.writeText(text).then(() => notify('복사되었습니다'))} className="btn btn-outline"><Copy className="w-3 h-3" />복사</button></div>
-        <textarea readOnly value={text} className="flex-1 min-h-[300px] text-xs font-mono border border-slate-200 rounded p-2 bg-slate-50" />
+        <div className="flex items-center justify-between mb-2"><h2 className="text-sm font-bold">보고용 요약문</h2><button onClick={() => copyText(text, notify, 'report-text')} className="btn btn-outline"><Copy className="w-3 h-3" />복사</button></div>
+        <textarea id="report-text" readOnly value={text} className="flex-1 min-h-[300px] text-xs font-mono border border-slate-200 rounded p-2 bg-slate-50" />
       </div>
     </div>
   );
@@ -1341,16 +1370,17 @@ function QuickAddModal({ onClose, attendees, onAdd }) {
 // 인쇄용 양식 (인사말씀 순서 · 내빈 소개 순서)
 // =====================================================================
 function PrintSheet({ event, attendees, speechOrder, introOrder, stats }) {
-  const speakers = speechOrder.map(id => attendees.find(a => a.id === id)).filter(Boolean);
-  const intros = introOrder.map(id => attendees.find(a => a.id === id)).filter(a => a && a.intro);
+  const speakers = speakerList(attendees, speechOrder);
+  const [only, setOnly] = useState(false);
+  const intros = introOrder.map(id => attendees.find(a => a.id === id)).filter(a => a && a.intro).filter(a => !only || PRESENT.includes(a.status));
   const [mode, setMode] = useState('speech');
-  useEffect(() => { const h = () => setMode(window.__printMode || 'speech'); window.addEventListener('printmode', h); return () => window.removeEventListener('printmode', h); }, []);
+  useEffect(() => { const h = () => { setMode(window.__printMode || 'speech'); setOnly(!!window.__printOnly); }; window.addEventListener('printmode', h); return () => window.removeEventListener('printmode', h); }, []);
   const stamp = new Date().toLocaleString('ko-KR', { month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
   return (
     <div className="hidden print:block text-black p-2">
       <div className="text-center border-b-2 border-black pb-2 mb-3">
         <div className="text-xl font-bold">{event.name}</div>
-        <div className="text-base font-bold mt-1">{mode === 'intro' ? '내빈 소개 순서' : '인사말씀 순서'}</div>
+        <div className="text-base font-bold mt-1">{mode === 'intro' ? `내빈 소개 순서${only ? ' (참석자만)' : ''}` : '인사말씀 순서'}</div>
         <div className="text-xs mt-1">{event.date} · {event.place} · 출력 {stamp} · 참석 {stats.present}/{stats.total}명</div>
       </div>
       {mode === 'speech' ? (
@@ -1365,7 +1395,9 @@ function PrintSheet({ event, attendees, speechOrder, introOrder, stats }) {
         </table>
       )}
       <div className="mt-3 text-xs">
-        {mode === 'speech' && speakers.map((a, i) => <div key={a.id} className="mb-1">{i + 1}. 다음은 {honor(a)}의 {a.speechType}이 있겠습니다. 큰 박수로 맞아 주시기 바랍니다.</div>)}
+        {mode === 'speech' && <div className="font-bold mb-1">[사회자 멘트 — 참석자 기준]</div>}
+        {mode === 'speech' && speakers.filter(a => PRESENT.includes(a.status)).map((a, i) => <div key={a.id} className="mb-1">{i + 1}. 다음은 {honor(a)}의 {a.speechType}{iga(a.speechType)} 있겠습니다. 큰 박수로 맞아 주시기 바랍니다.</div>)}
+        {mode === 'speech' && speakers.some(a => !PRESENT.includes(a.status)) && <div className="mt-2 font-bold">※ 미도착(멘트 제외): {speakers.filter(a => !PRESENT.includes(a.status)).map(a => `${a.name} ${a.position}(${a.speechType})`).join(', ')}</div>}
         <div className="mt-2 text-[10px] text-slate-500">※ 참석란 ○=도착·착석, ×=미도착·불참. 화성특례시 AI스마트전략실</div>
       </div>
     </div>
@@ -1405,7 +1437,7 @@ function EditModal({ a, onClose, updateAttendee, onDelete }) {
 const buildKakaoReport = ({ stats, attendees, event, speechOrder, detail }) => {
   const d = new Date(); const wd = '일월화수목금토'[d.getDay()];
   const stamp = `${d.getMonth() + 1}.${d.getDate()}.(${wd}) ${nowHM()}`;
-  const speakers = speechOrder.map(id => attendees.find(a => a.id === id)).filter(Boolean);
+  const speakers = speakerList(attendees, speechOrder);
   const absentNames = attendees.filter(a => a.status === '미도착');
   const recent = attendees.filter(a => PRESENT.includes(a.status)).sort((a, b) => (b.arrivalTime || '').localeCompare(a.arrivalTime || '')).slice(0, 5);
   const cats = [...new Set(attendees.map(a => a.category))].map(c => { const l = attendees.filter(a => a.category === c); return `${c} ${l.filter(a => PRESENT.includes(a.status)).length}/${l.length}`; });
