@@ -7,7 +7,7 @@ import { Users, Crown, MapPin, Clock, BarChart3, Mic2, FileText, Bell, X, Lock, 
 // =====================================================================
 
 const STORE_KEY = 'mars-vip-platform-v2';
-const APP_VERSION = '3.5.0';
+const APP_VERSION = '3.5.1';
 
 // ---------- 초기 자료 ----------
 const DEFAULT_EVENT = {
@@ -606,19 +606,19 @@ function BoardView({ attendees, stats, program, isAdmin, setStatus, toggleSpeech
       </div>
 
       {/* 내빈 목록 */}
-      <div className="card p-3">
-        <div className="flex flex-wrap items-center gap-2 mb-3">
-          <h2 className="section-title"><Users className="w-4 h-4" />내빈 현황</h2>
-          <input value={q} onChange={e => setQ(e.target.value)} placeholder="이름·소속 검색" className="border border-slate-300 rounded px-2 py-1 text-xs w-40" />
-          <div className="flex gap-1 flex-wrap">
+      <div className="card p-2 sm:p-3">
+        <div className="flex flex-wrap items-center gap-1.5 mb-2">
+          <h2 className="section-title hidden sm:flex"><Users className="w-4 h-4" />내빈 현황</h2>
+          <input value={q} onChange={e => setQ(e.target.value)} placeholder="이름·소속 검색" className="border border-slate-300 rounded px-2 py-1 text-xs flex-1 min-w-0 sm:flex-none sm:w-40" />
+          <button onClick={() => setBig(v => !v)} className={`btn px-2 sm:order-last ${big ? 'btn-dark' : 'btn-outline'}`}>{big ? '크게 ✓' : '크게'}</button>
+          <button onClick={printSpeech} className="btn btn-primary px-2 sm:order-last"><Printer className="w-3 h-3" />인사말씀 인쇄 ({stats.speakersPresent}/{stats.speakers})</button>
+          <div className="w-full sm:w-auto flex gap-1 overflow-x-auto">
             {['전체', ...STATUSES, '인사말씀'].map(f => {
               const n = f === '전체' ? attendees.length : f === '인사말씀' ? attendees.filter(a => a.speech).length : attendees.filter(a => a.status === f).length;
-              return <button key={f} onClick={() => setFilter(f)} className={`px-2 py-1 rounded-md text-[11px] font-semibold border ${filter === f ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'}`}>{f} <span className="opacity-60">{n}</span></button>;
+              return <button key={f} onClick={() => setFilter(f)} className={`shrink-0 px-2 py-0.5 rounded-md text-[11px] font-semibold border ${filter === f ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'}`}>{f} <span className="opacity-60">{n}</span></button>;
             })}
           </div>
-          <button onClick={() => setBig(v => !v)} className={`btn ml-auto ${big ? 'btn-dark' : 'btn-outline'}`}>{big ? '글자 크게 ✓' : '글자 크게'}</button>
-          <button onClick={printSpeech} className="btn btn-primary"><Printer className="w-3 h-3" />인사말씀 명단 인쇄 ({stats.speakersPresent}/{stats.speakers})</button>
-          {!isAdmin && <span className="text-[10px] text-slate-400 flex items-center gap-1"><Eye className="w-3 h-3" />조회 전용</span>}
+
         </div>
 
         {categories.map(cat => {
@@ -626,36 +626,28 @@ function BoardView({ attendees, stats, program, isAdmin, setStatus, toggleSpeech
           if (!list.length) return null;
           const pc = list.filter(a => PRESENT.includes(a.status)).length;
           return (
-            <div key={cat} className="mb-4">
-              <div className="flex items-center gap-2 mb-1.5">
-                <span className="text-xs font-bold text-white bg-slate-700 px-2 py-0.5 rounded">{cat}</span>
+            <div key={cat} className="mb-2">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-[11px] font-bold text-white bg-slate-700 px-1.5 py-0 rounded">{cat}</span>
                 <span className="text-[11px] text-slate-500">참석 <b className={pc ? 'text-emerald-600' : ''}>{pc}</b>/{list.length}</span>
                 <span className="flex-1 border-t border-slate-200" />
               </div>
-              <div className={`grid gap-2 ${big ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3'}`}>
+              <div className={`grid gap-1 ${big ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3'}`}>
                 {list.map(a => {
                   const tone = a.status === '착석' ? 'border-l-emerald-500 bg-emerald-50' : a.status === '도착' ? 'border-l-amber-500 bg-amber-50' : a.status === '불참' ? 'border-l-rose-400 bg-rose-50/60 opacity-75' : a.status === '퇴장' ? 'border-l-slate-300 bg-slate-50 opacity-70' : 'border-l-slate-300 bg-white';
                   const badge = a.status === '착석' ? 'bg-emerald-600 text-white' : a.status === '도착' ? 'bg-amber-500 text-white' : a.status === '불참' ? 'bg-rose-500 text-white' : a.status === '퇴장' ? 'bg-slate-400 text-white' : 'bg-slate-200 text-slate-600';
                   return (
-                    <div key={a.id} onClick={() => isAdmin && setSheet(a.id)} className={`rounded-lg border border-slate-200 border-l-4 shadow-sm px-3 py-2 ${tone} ${isAdmin ? 'cursor-pointer hover:shadow-md hover:border-indigo-300 active:scale-[0.99] transition' : ''}`}>
-                      <div className="flex items-center gap-2">
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-baseline gap-1.5 flex-wrap">
-                            <span className={`font-bold text-slate-900 leading-tight ${big ? 'text-2xl' : 'text-lg'}`}>{a.name}</span>
-                            <span className={`text-slate-700 font-medium ${big ? 'text-base' : 'text-sm'}`}>{a.position}</span>
-                            {a.speech && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-violet-600 text-white"><Mic2 className="w-2.5 h-2.5 inline -mt-0.5" /> {a.speechType}</span>}
-                          </div>
-                          <div className={`text-slate-500 truncate ${big ? 'text-sm' : 'text-xs'}`}>{a.organization}{a.note && <span className="text-slate-400"> · {a.note}</span>}</div>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <span className={`inline-block px-2 py-1 rounded-md font-bold ${big ? 'text-sm' : 'text-xs'} ${badge}`}>{a.status}</span>
-                          <div className="text-[10px] text-slate-500 font-mono mt-1">{a.seat}{(a.seatedTime || a.arrivalTime) && ` · ${a.seatedTime || a.arrivalTime}`}</div>
-                        </div>
+                    <div key={a.id} onClick={() => isAdmin && setSheet(a.id)} className={`rounded-md border border-slate-200 border-l-4 pl-2 pr-2 ${big ? 'py-1.5' : 'py-1'} ${tone} ${isAdmin ? 'cursor-pointer hover:border-indigo-300 active:bg-slate-100' : ''}`}>
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className={`shrink-0 font-bold text-slate-900 leading-tight ${big ? 'text-xl' : 'text-[16px]'}`}>{a.name}</span>
+                        <span className={`min-w-0 truncate text-slate-700 ${big ? 'text-sm' : 'text-[12px]'}`}>{a.position}</span>
+                        {a.speech && <span className="shrink-0 text-[10px] font-bold px-1 rounded bg-violet-600 text-white">{a.speechType}</span>}
+                        <span className={`ml-auto shrink-0 px-1.5 py-0.5 rounded font-bold text-[11px] ${badge}`}>{a.status}</span>
                       </div>
-                      <div className="flex items-center gap-1.5 mt-1.5 text-[10px]">
-                        <span className={`px-1.5 py-0.5 rounded border ${a.intro ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-400 border-slate-300'}`}>소개 {a.intro ? '○' : '×'}</span>
-                        <span className={`px-1.5 py-0.5 rounded border ${a.speech ? 'bg-violet-600 text-white border-violet-600' : 'bg-white text-slate-400 border-slate-300'}`}>인사말씀 {a.speech ? '○' : '×'}</span>
-                        {isAdmin && <span className="ml-auto text-slate-400">누르면 체크 창</span>}
+                      <div className="flex items-center gap-1.5 text-[11px] text-slate-400 min-w-0 leading-tight mt-0.5">
+                        <span className="min-w-0 truncate">{a.organization}</span>
+                        <span className="shrink-0 font-mono">· {a.seat}{(a.seatedTime || a.arrivalTime) && ` · ${a.seatedTime || a.arrivalTime}`}</span>
+                        {!a.intro && <span className="shrink-0 px-1 rounded border border-slate-300">소개×</span>}
                       </div>
                     </div>
                   );
