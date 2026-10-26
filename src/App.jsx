@@ -7,7 +7,7 @@ import { Users, Crown, MapPin, Clock, BarChart3, Mic2, FileText, Bell, X, Lock, 
 // =====================================================================
 
 const STORE_KEY = 'mars-vip-platform-v2';
-const APP_VERSION = '2.1.0';
+const APP_VERSION = '2.2.0';
 
 // ---------- 초기 자료 ----------
 const DEFAULT_EVENT = {
@@ -318,6 +318,8 @@ function LoginModal({ onClose, onLogin }) {
 function BoardView({ attendees, stats, program, isAdmin, setStatus, toggleSpeech, toggleIntro }) {
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState('전체');
+  const [big, setBig] = useState(() => localStorage.getItem('mars-big') === '1');
+  useEffect(() => { localStorage.setItem('mars-big', big ? '1' : '0'); }, [big]);
   const [clock, setClock] = useState(nowHM());
   useEffect(() => { const t = setInterval(() => setClock(nowHM()), 15000); return () => clearInterval(t); }, []);
 
@@ -373,43 +375,56 @@ function BoardView({ attendees, stats, program, isAdmin, setStatus, toggleSpeech
           <h2 className="section-title"><Users className="w-4 h-4" />내빈 현황</h2>
           <input value={q} onChange={e => setQ(e.target.value)} placeholder="이름·소속 검색" className="border border-slate-300 rounded px-2 py-1 text-xs w-40" />
           <div className="flex gap-1 flex-wrap">
-            {['전체', ...STATUSES, '인사말씀'].map(f => (
-              <button key={f} onClick={() => setFilter(f)} className={`px-2 py-1 rounded text-[11px] border ${filter === f ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-300'}`}>{f}</button>
-            ))}
+            {['전체', ...STATUSES, '인사말씀'].map(f => {
+              const n = f === '전체' ? attendees.length : f === '인사말씀' ? attendees.filter(a => a.speech).length : attendees.filter(a => a.status === f).length;
+              return <button key={f} onClick={() => setFilter(f)} className={`px-2 py-1 rounded-md text-[11px] font-semibold border ${filter === f ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'}`}>{f} <span className="opacity-60">{n}</span></button>;
+            })}
           </div>
-          {!isAdmin && <span className="ml-auto text-[10px] text-slate-400 flex items-center gap-1"><Eye className="w-3 h-3" />조회 전용 · 상태 변경은 관리자 모드에서</span>}
+          <button onClick={() => setBig(v => !v)} className={`btn ml-auto ${big ? 'btn-dark' : 'btn-outline'}`}>{big ? '글자 크게 ✓' : '글자 크게'}</button>
+          {!isAdmin && <span className="text-[10px] text-slate-400 flex items-center gap-1"><Eye className="w-3 h-3" />조회 전용</span>}
         </div>
 
         {categories.map(cat => {
           const list = visible.filter(a => a.category === cat);
           if (!list.length) return null;
+          const pc = list.filter(a => PRESENT.includes(a.status)).length;
           return (
-            <div key={cat} className="mb-3">
-              <div className="text-[11px] font-bold text-slate-500 mb-1 flex items-center gap-2">{cat}<span className="text-slate-400 font-normal">{list.filter(a => PRESENT.includes(a.status)).length}/{list.length}</span></div>
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-1.5">
-                {list.map(a => (
-                  <div key={a.id} className={`border rounded px-2.5 py-2 flex flex-col gap-1.5 ${a.status === '착석' ? 'border-emerald-200 bg-emerald-50/40' : a.status === '도착' ? 'border-amber-200 bg-amber-50/40' : 'border-slate-200'}`}>
-                    <div className="flex items-start gap-2">
-                      <div className="min-w-0 flex-1">
-                        <div className="text-sm font-bold truncate">{a.name} <span className="text-xs font-normal text-slate-600">{a.position}</span></div>
-                        <div className="text-[11px] text-slate-500 truncate">{a.organization}{a.note && <span className="text-slate-400"> · {a.note}</span>}</div>
+            <div key={cat} className="mb-4">
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="text-xs font-bold text-white bg-slate-700 px-2 py-0.5 rounded">{cat}</span>
+                <span className="text-[11px] text-slate-500">참석 <b className={pc ? 'text-emerald-600' : ''}>{pc}</b>/{list.length}</span>
+                <span className="flex-1 border-t border-slate-200" />
+              </div>
+              <div className={`grid gap-2 ${big ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3'}`}>
+                {list.map(a => {
+                  const tone = a.status === '착석' ? 'border-l-emerald-500 bg-emerald-50' : a.status === '도착' ? 'border-l-amber-500 bg-amber-50' : a.status === '불참' ? 'border-l-rose-400 bg-rose-50/60 opacity-75' : a.status === '퇴장' ? 'border-l-slate-300 bg-slate-50 opacity-70' : 'border-l-slate-300 bg-white';
+                  const badge = a.status === '착석' ? 'bg-emerald-600 text-white' : a.status === '도착' ? 'bg-amber-500 text-white' : a.status === '불참' ? 'bg-rose-500 text-white' : a.status === '퇴장' ? 'bg-slate-400 text-white' : 'bg-slate-200 text-slate-600';
+                  return (
+                    <div key={a.id} className={`rounded-lg border border-slate-200 border-l-4 shadow-sm px-3 py-2 ${tone}`}>
+                      <div className="flex items-center gap-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-baseline gap-1.5 flex-wrap">
+                            <span className={`font-bold text-slate-900 leading-tight ${big ? 'text-2xl' : 'text-lg'}`}>{a.name}</span>
+                            <span className={`text-slate-700 font-medium ${big ? 'text-base' : 'text-sm'}`}>{a.position}</span>
+                            {a.speech && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-violet-600 text-white"><Mic2 className="w-2.5 h-2.5 inline -mt-0.5" /> {a.speechType}</span>}
+                          </div>
+                          <div className={`text-slate-500 truncate ${big ? 'text-sm' : 'text-xs'}`}>{a.organization}{a.note && <span className="text-slate-400"> · {a.note}</span>}</div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <span className={`inline-block px-2 py-1 rounded-md font-bold ${big ? 'text-sm' : 'text-xs'} ${badge}`}>{a.status}</span>
+                          <div className="text-[10px] text-slate-500 font-mono mt-1">{a.seat}{(a.seatedTime || a.arrivalTime) && ` · ${a.seatedTime || a.arrivalTime}`}</div>
+                        </div>
                       </div>
-                      <div className="text-right shrink-0">
-                        <StatusChip status={a.status} small />
-                        <div className="text-[10px] text-slate-400 font-mono mt-0.5">{a.seat}{a.arrivalTime && ` · ${a.arrivalTime}`}</div>
-                      </div>
+                      {isAdmin && (
+                        <div className="flex items-center gap-2 flex-wrap mt-2 pt-2 border-t border-slate-200/70">
+                          <StatusButtons a={a} setStatus={setStatus} compact />
+                          <label className="flex items-center gap-1 text-[11px] text-slate-600 cursor-pointer ml-auto"><input type="checkbox" checked={a.speech} onChange={e => toggleSpeech(a.id, e.target.checked)} className="accent-violet-600" />인사말씀</label>
+                          <label className="flex items-center gap-1 text-[11px] text-slate-600 cursor-pointer"><input type="checkbox" checked={a.intro} onChange={e => toggleIntro(a.id, e.target.checked)} className="accent-slate-700" />소개</label>
+                        </div>
+                      )}
                     </div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {isAdmin && <StatusButtons a={a} setStatus={setStatus} compact />}
-                      <label className={`flex items-center gap-1 text-[11px] ${a.speech ? 'text-violet-700 font-semibold' : 'text-slate-500'} ${isAdmin ? 'cursor-pointer' : ''}`}>
-                        <input type="checkbox" checked={a.speech} disabled={!isAdmin} onChange={e => toggleSpeech(a.id, e.target.checked)} className="accent-violet-600" />인사말씀{a.speech && `(${a.speechType})`}
-                      </label>
-                      <label className={`flex items-center gap-1 text-[11px] ${a.intro ? 'text-slate-700' : 'text-slate-400'} ${isAdmin ? 'cursor-pointer' : ''}`}>
-                        <input type="checkbox" checked={a.intro} disabled={!isAdmin} onChange={e => toggleIntro(a.id, e.target.checked)} className="accent-slate-700" />소개
-                      </label>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           );
@@ -572,6 +587,8 @@ function SeatView({ attendees, layout, setLayout, isAdmin, setStatus, patch, not
   const seatZones = [...new Set(attendees.map(a => (a.seat || '').split('-')[0]).filter(Boolean))];
   const sections = [...new Set([...seatZones, ...Object.keys(layout).filter(k => k !== '_order')])];
   const [dragging, setDragging] = useState(null);
+  const [seatDrag, setSeatDrag] = useState(null); // { id, startX, startY, moved }
+  const [seatOver, setSeatOver] = useState(null); // 대상 좌석 id
   const [zoom, setZoom] = useState(1);
   const [editSeats, setEditSeats] = useState(false);
   const [selected, setSelected] = useState([]);
@@ -593,6 +610,44 @@ function SeatView({ attendees, layout, setLayout, isAdmin, setStatus, patch, not
     setLayout(l => ({ ...l, [dragging.section]: { ...get(dragging.section), ...(l[dragging.section] || {}), x: Math.round(x / 10) * 10, y: Math.round(y / 10) * 10 } }));
   };
   const onPointerUp = () => setDragging(null);
+
+  // ---- 좌석(사람) 끌어서 순서 바꾸기 ----
+  const onSeatDown = (e, a) => {
+    if (!isAdmin || editSeats) return;
+    setSeatDrag({ id: a.id, startX: e.clientX, startY: e.clientY, moved: false });
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+  };
+  const onSeatMove = (e) => {
+    if (!seatDrag) return;
+    if (!seatDrag.moved && Math.hypot(e.clientX - seatDrag.startX, e.clientY - seatDrag.startY) < 6) return;
+    if (!seatDrag.moved) setSeatDrag(d => ({ ...d, moved: true }));
+    const el = document.elementFromPoint(e.clientX, e.clientY)?.closest('[data-seat-id],[data-zone]');
+    if (!el) { setSeatOver(null); return; }
+    const over = el.dataset.seatId ? Number(el.dataset.seatId) : `zone:${el.dataset.zone}`;
+    if (over !== seatOver) setSeatOver(over);
+  };
+  const onSeatUp = (a) => {
+    const d = seatDrag; const over = seatOver;
+    setSeatDrag(null); setSeatOver(null);
+    if (!d) return;
+    if (!d.moved) { setStatus(a.id, a.status === '착석' ? '도착' : '착석'); return; } // 짧게 누르면 상태 전환
+    if (over == null || over === d.id) return;
+    patch(s => {
+      const src = s.attendees.find(x => x.id === d.id); if (!src) return {};
+      const zoneOf = x => (x.seat || '').split('-')[0];
+      let targetZone, targetIndex;
+      if (typeof over === 'string') { targetZone = over.slice(5); targetIndex = Infinity; }
+      else { const t = s.attendees.find(x => x.id === over); if (!t) return {}; targetZone = zoneOf(t); targetIndex = over; }
+      const inZone = s.attendees.filter(x => zoneOf(x) === targetZone && x.id !== d.id).sort((x, y) => x.seat.localeCompare(y.seat));
+      const idx = targetIndex === Infinity ? inZone.length : inZone.findIndex(x => x.id === targetIndex);
+      inZone.splice(idx < 0 ? inZone.length : idx, 0, src);
+      const newSeat = {}; inZone.forEach((x, i) => { newSeat[x.id] = `${targetZone}-${String(i + 1).padStart(2, '0')}`; });
+      // 원래 구역 번호도 빈틈 없이 다시 매김
+      const srcZone = zoneOf(src);
+      if (srcZone !== targetZone) { s.attendees.filter(x => zoneOf(x) === srcZone && x.id !== d.id).sort((x, y) => x.seat.localeCompare(y.seat)).forEach((x, i) => { newSeat[x.id] = `${srcZone}-${String(i + 1).padStart(2, '0')}`; }); }
+      return { attendees: s.attendees.map(x => newSeat[x.id] ? { ...x, seat: newSeat[x.id] } : x) };
+    });
+  };
   const setCols = (s, cols) => setLayout(l => ({ ...l, [s]: { ...get(s), cols } }));
   const boardHeight = Math.max(600, ...sections.map(s => get(s).y + 360));
 
@@ -621,12 +676,12 @@ function SeatView({ attendees, layout, setLayout, isAdmin, setStatus, patch, not
       <div className="flex flex-wrap items-start justify-between gap-2 mb-2">
         <div>
           <h2 className="section-title"><MapPin className="w-4 h-4" />좌석 현황</h2>
-          <p className="text-[11px] text-slate-500">구역 제목을 끌어 블록 단위로 옮깁니다. {isAdmin ? (editSeats ? '좌석을 눌러 선택한 뒤 옮길 구역을 고르세요.' : '좌석을 누르면 착석/도착이 바뀝니다.') : '배치 이동은 가능하며 상태 변경은 관리자 모드에서 합니다.'}</p>
+          <p className="text-[11px] text-slate-500">{isAdmin ? (editSeats ? '좌석을 눌러 선택한 뒤 옮길 구역을 고르세요.' : '사람(좌석)을 끌어 다른 자리에 놓으면 그 자리에 끼어들고 번호가 다시 매겨집니다. 짧게 누르면 착석/도착 전환. 구역 제목을 끌면 블록째 이동.') : '구역 블록 이동만 가능하며 자리 변경은 관리자 모드에서 합니다.'}</p>
         </div>
         <div className="flex flex-wrap items-center gap-1 shrink-0">
           {isAdmin && (
             <>
-              <button onClick={() => { setEditSeats(v => !v); setSelected([]); }} className={`btn ${editSeats ? 'btn-dark' : 'btn-outline'}`}>{editSeats ? '좌석 편집 끝내기' : '좌석 편집(구역 이동)'}</button>
+              <button onClick={() => { setEditSeats(v => !v); setSelected([]); }} className={`btn ${editSeats ? 'btn-dark' : 'btn-outline'}`}>{editSeats ? '좌석 편집 끝내기' : '여러 명 한꺼번에 이동'}</button>
               <button onClick={addZone} className="btn btn-outline"><Plus className="w-3 h-3" />구역 추가</button>
             </>
           )}
@@ -671,14 +726,15 @@ function SeatView({ attendees, layout, setLayout, isAdmin, setStatus, patch, not
                     {isAdmin && !list.length && <button onClick={() => removeZone(section)} className="text-slate-300 hover:text-rose-600"><X className="w-3 h-3" /></button>}
                   </div>
                 </div>
-                <div className="p-2 grid gap-1" style={{ gridTemplateColumns: `repeat(${pos.cols}, ${seatPx}px)`, minHeight: 60 }}>
+                <div data-zone={section} className={`p-2 grid gap-1 rounded-b-xl ${seatOver === `zone:${section}` ? 'bg-blue-50' : ''}`} style={{ gridTemplateColumns: `repeat(${pos.cols}, ${seatPx}px)`, minHeight: 60 }} onPointerMove={onSeatMove}>
                   {!list.length && <div className="text-[10px] text-slate-400 col-span-full py-3 text-center">빈 구역 — 좌석 편집에서 내빈을 옮기세요</div>}
                   {list.map(a => {
                     const seated = a.status === '착석'; const arrived = a.status === '도착'; const sel = selected.includes(a.id);
                     return (
-                      <div key={a.id} title={`${a.seat} · ${a.name} ${a.position} · ${a.status}`}
-                        onClick={() => { if (!isAdmin) return; editSeats ? toggleSel(a.id) : setStatus(a.id, seated ? '도착' : '착석'); }}
-                        className={`aspect-square rounded-md text-[9px] flex flex-col items-center justify-center leading-tight transition-transform hover:scale-110 ${isAdmin ? 'cursor-pointer' : 'cursor-help'} ${sel ? 'ring-2 ring-blue-500 ring-offset-1' : ''} ${
+                      <div key={a.id} data-seat-id={a.id} title={`${a.seat} · ${a.name} ${a.position} · ${a.status}${isAdmin ? ' — 끌어서 자리 이동, 짧게 누르면 착석/도착' : ''}`}
+                        onClick={() => { if (isAdmin && editSeats) toggleSel(a.id); }}
+                        onPointerDown={e => onSeatDown(e, a)} onPointerUp={() => onSeatUp(a)} onPointerCancel={() => { setSeatDrag(null); setSeatOver(null); }}
+                        className={`aspect-square rounded-md text-[9px] flex flex-col items-center justify-center leading-tight transition-transform hover:scale-110 ${isAdmin ? (editSeats ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing') : 'cursor-help'} ${sel ? 'ring-2 ring-blue-500 ring-offset-1' : ''} ${seatDrag?.id === a.id && seatDrag.moved ? 'opacity-40' : ''} ${seatOver === a.id ? 'ring-2 ring-blue-500 scale-110' : ''} ${
                           seated ? `${style.bg} text-white` : arrived ? 'bg-amber-100 text-amber-800 border border-amber-300' : a.status === '불참' ? 'bg-rose-50 text-rose-300 border border-rose-200 line-through' : 'bg-slate-100 text-slate-400 border border-dashed border-slate-300'}`}>
                         <div className="font-mono font-bold">{a.seat.split('-')[1]}</div>
                         <div className="truncate max-w-[40px]">{a.name.slice(0, 3)}</div>
