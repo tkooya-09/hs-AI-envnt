@@ -7,7 +7,7 @@ import { Users, Crown, MapPin, Clock, BarChart3, Mic2, FileText, Bell, X, Lock, 
 // =====================================================================
 
 const STORE_KEY = 'mars-vip-platform-v2';
-const APP_VERSION = '2.3.0';
+const APP_VERSION = '2.3.1';
 
 // ---------- 초기 자료 ----------
 const DEFAULT_EVENT = {
@@ -143,7 +143,7 @@ const honor = (a) => `${a.organization} ${a.name} ${a.position}님`;
 // =====================================================================
 export default function App() {
   const [state, setState] = useState(loadState);
-  const [isAdmin, setIsAdmin] = useState(() => sessionStorage.getItem('mars-admin') === '1');
+  const [isAdmin, setIsAdmin] = useState(() => sessionStorage.getItem('mars-admin') === '1' || localStorage.getItem('mars-admin-keep') === '1');
   const [view, setView] = useState('board');
   const [loginOpen, setLoginOpen] = useState(false);
   const [quickAdd, setQuickAdd] = useState(false);
@@ -200,11 +200,11 @@ export default function App() {
       rate: total ? Math.round(present / total * 100) : 0 };
   }, [attendees]);
 
-  const login = (pin) => {
-    if (pin === state.adminPin) { setIsAdmin(true); sessionStorage.setItem('mars-admin', '1'); setLoginOpen(false); notify('관리자 모드로 전환되었습니다'); return true; }
+  const login = (pin, keep) => {
+    if (pin === state.adminPin) { setIsAdmin(true); sessionStorage.setItem('mars-admin', '1'); if (keep) localStorage.setItem('mars-admin-keep', '1'); setLoginOpen(false); notify('관리자 모드로 전환되었습니다'); return true; }
     return false;
   };
-  const logout = () => { setIsAdmin(false); sessionStorage.removeItem('mars-admin'); if (['manage', 'settings'].includes(view)) setView('board'); notify('조회 모드로 전환되었습니다'); };
+  const logout = () => { setIsAdmin(false); sessionStorage.removeItem('mars-admin'); localStorage.removeItem('mars-admin-keep'); if (['manage', 'settings'].includes(view)) setView('board'); notify('조회 모드로 전환되었습니다'); };
 
   const tabs = [
     { id: 'board', label: '현황판', icon: BarChart3 },
@@ -249,6 +249,13 @@ export default function App() {
       </header>
 
       <main className="print:hidden max-w-7xl mx-auto p-3 md:p-4">
+        {!isAdmin && ['board', 'seat', 'speech'].includes(view) && (
+          <div className="mb-3 flex items-center gap-3 rounded-lg border-2 border-amber-400 bg-amber-50 px-3 py-2 text-sm">
+            <Lock className="w-4 h-4 text-amber-600 shrink-0" />
+            <span className="text-amber-900"><b>조회 모드</b>입니다. 도착·착석 체크, 인사말씀 지정, 자리 변경을 하려면 관리자로 입장하세요. <span className="text-amber-700">(초기 비밀번호 1234)</span></span>
+            <button onClick={() => setLoginOpen(true)} className="btn bg-amber-500 text-white hover:bg-amber-600 ml-auto shrink-0"><LogIn className="w-3.5 h-3.5" />관리자 입장</button>
+          </div>
+        )}
         {view === 'board' && <BoardView attendees={attendees} stats={stats} program={program} isAdmin={isAdmin} setStatus={setStatus} toggleSpeech={toggleSpeech} toggleIntro={toggleIntro} updateAttendee={updateAttendee} printSpeech={() => { window.__printMode = 'speech'; window.dispatchEvent(new Event('printmode')); setTimeout(() => window.print(), 50); }} />}
         {view === 'speech' && <SpeechView attendees={attendees} speechOrder={speechOrder} introOrder={introOrder} isAdmin={isAdmin}
           setSpeechOrder={o => patch(() => ({ speechOrder: o }))} setIntroOrder={o => patch(() => ({ introOrder: o }))}
@@ -298,13 +305,15 @@ function StatusButtons({ a, setStatus, compact }) {
 function LoginModal({ onClose, onLogin }) {
   const [pin, setPin] = useState('');
   const [err, setErr] = useState(false);
-  const submit = (e) => { e.preventDefault(); if (!onLogin(pin)) { setErr(true); setPin(''); } };
+  const [keep, setKeep] = useState(true);
+  const submit = (e) => { e.preventDefault(); if (!onLogin(pin, keep)) { setErr(true); setPin(''); } };
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <form onSubmit={submit} onClick={e => e.stopPropagation()} className="bg-white rounded-lg p-5 w-full max-w-xs shadow-xl">
         <div className="flex items-center gap-2 mb-3"><Lock className="w-4 h-4 text-rose-600" /><h3 className="font-bold text-sm">관리자 모드 입장</h3><button type="button" onClick={onClose} className="ml-auto text-slate-400"><X className="w-4 h-4" /></button></div>
         <input autoFocus type="password" inputMode="numeric" value={pin} onChange={e => { setPin(e.target.value); setErr(false); }} placeholder="비밀번호" className="w-full border border-slate-300 rounded px-3 py-2 text-sm mb-2 text-center tracking-widest" />
         {err && <div className="text-xs text-rose-600 mb-2">비밀번호가 맞지 않습니다</div>}
+        <label className="flex items-center gap-1.5 text-xs text-slate-600 mb-3 cursor-pointer"><input type="checkbox" checked={keep} onChange={e => setKeep(e.target.checked)} />이 기기에서 계속 관리자로 유지 (운영 태블릿·노트북)</label>
         <button className="w-full bg-rose-600 text-white rounded py-2 text-sm font-semibold hover:bg-rose-700">입장</button>
         <p className="text-[10px] text-slate-400 mt-2">초기 비밀번호 1234 · 설정에서 변경하세요</p>
       </form>
