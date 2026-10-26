@@ -7,7 +7,7 @@ import { Users, Crown, MapPin, Clock, BarChart3, Mic2, FileText, Bell, X, Lock, 
 // =====================================================================
 
 const STORE_KEY = 'mars-vip-platform-v2';
-const APP_VERSION = '2.2.0';
+const APP_VERSION = '2.3.0';
 
 // ---------- 초기 자료 ----------
 const DEFAULT_EVENT = {
@@ -249,7 +249,7 @@ export default function App() {
       </header>
 
       <main className="print:hidden max-w-7xl mx-auto p-3 md:p-4">
-        {view === 'board' && <BoardView attendees={attendees} stats={stats} program={program} isAdmin={isAdmin} setStatus={setStatus} toggleSpeech={toggleSpeech} toggleIntro={toggleIntro} />}
+        {view === 'board' && <BoardView attendees={attendees} stats={stats} program={program} isAdmin={isAdmin} setStatus={setStatus} toggleSpeech={toggleSpeech} toggleIntro={toggleIntro} updateAttendee={updateAttendee} printSpeech={() => { window.__printMode = 'speech'; window.dispatchEvent(new Event('printmode')); setTimeout(() => window.print(), 50); }} />}
         {view === 'speech' && <SpeechView attendees={attendees} speechOrder={speechOrder} introOrder={introOrder} isAdmin={isAdmin}
           setSpeechOrder={o => patch(() => ({ speechOrder: o }))} setIntroOrder={o => patch(() => ({ introOrder: o }))}
           updateAttendee={updateAttendee} toggleSpeech={toggleSpeech} toggleIntro={toggleIntro} notify={notify} />}
@@ -315,10 +315,11 @@ function LoginModal({ onClose, onLogin }) {
 // =====================================================================
 // 현황판
 // =====================================================================
-function BoardView({ attendees, stats, program, isAdmin, setStatus, toggleSpeech, toggleIntro }) {
+function BoardView({ attendees, stats, program, isAdmin, setStatus, toggleSpeech, toggleIntro, updateAttendee, printSpeech }) {
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState('전체');
   const [big, setBig] = useState(() => localStorage.getItem('mars-big') === '1');
+  const [sheet, setSheet] = useState(null);
   useEffect(() => { localStorage.setItem('mars-big', big ? '1' : '0'); }, [big]);
   const [clock, setClock] = useState(nowHM());
   useEffect(() => { const t = setInterval(() => setClock(nowHM()), 15000); return () => clearInterval(t); }, []);
@@ -381,6 +382,7 @@ function BoardView({ attendees, stats, program, isAdmin, setStatus, toggleSpeech
             })}
           </div>
           <button onClick={() => setBig(v => !v)} className={`btn ml-auto ${big ? 'btn-dark' : 'btn-outline'}`}>{big ? '글자 크게 ✓' : '글자 크게'}</button>
+          <button onClick={printSpeech} className="btn btn-primary"><Printer className="w-3 h-3" />인사말씀 명단 인쇄 ({stats.speakersPresent}/{stats.speakers})</button>
           {!isAdmin && <span className="text-[10px] text-slate-400 flex items-center gap-1"><Eye className="w-3 h-3" />조회 전용</span>}
         </div>
 
@@ -400,7 +402,7 @@ function BoardView({ attendees, stats, program, isAdmin, setStatus, toggleSpeech
                   const tone = a.status === '착석' ? 'border-l-emerald-500 bg-emerald-50' : a.status === '도착' ? 'border-l-amber-500 bg-amber-50' : a.status === '불참' ? 'border-l-rose-400 bg-rose-50/60 opacity-75' : a.status === '퇴장' ? 'border-l-slate-300 bg-slate-50 opacity-70' : 'border-l-slate-300 bg-white';
                   const badge = a.status === '착석' ? 'bg-emerald-600 text-white' : a.status === '도착' ? 'bg-amber-500 text-white' : a.status === '불참' ? 'bg-rose-500 text-white' : a.status === '퇴장' ? 'bg-slate-400 text-white' : 'bg-slate-200 text-slate-600';
                   return (
-                    <div key={a.id} className={`rounded-lg border border-slate-200 border-l-4 shadow-sm px-3 py-2 ${tone}`}>
+                    <div key={a.id} onClick={() => isAdmin && setSheet(a.id)} className={`rounded-lg border border-slate-200 border-l-4 shadow-sm px-3 py-2 ${tone} ${isAdmin ? 'cursor-pointer hover:shadow-md hover:border-indigo-300 active:scale-[0.99] transition' : ''}`}>
                       <div className="flex items-center gap-2">
                         <div className="min-w-0 flex-1">
                           <div className="flex items-baseline gap-1.5 flex-wrap">
@@ -415,13 +417,11 @@ function BoardView({ attendees, stats, program, isAdmin, setStatus, toggleSpeech
                           <div className="text-[10px] text-slate-500 font-mono mt-1">{a.seat}{(a.seatedTime || a.arrivalTime) && ` · ${a.seatedTime || a.arrivalTime}`}</div>
                         </div>
                       </div>
-                      {isAdmin && (
-                        <div className="flex items-center gap-2 flex-wrap mt-2 pt-2 border-t border-slate-200/70">
-                          <StatusButtons a={a} setStatus={setStatus} compact />
-                          <label className="flex items-center gap-1 text-[11px] text-slate-600 cursor-pointer ml-auto"><input type="checkbox" checked={a.speech} onChange={e => toggleSpeech(a.id, e.target.checked)} className="accent-violet-600" />인사말씀</label>
-                          <label className="flex items-center gap-1 text-[11px] text-slate-600 cursor-pointer"><input type="checkbox" checked={a.intro} onChange={e => toggleIntro(a.id, e.target.checked)} className="accent-slate-700" />소개</label>
-                        </div>
-                      )}
+                      <div className="flex items-center gap-1.5 mt-1.5 text-[10px]">
+                        <span className={`px-1.5 py-0.5 rounded border ${a.intro ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-400 border-slate-300'}`}>소개 {a.intro ? '○' : '×'}</span>
+                        <span className={`px-1.5 py-0.5 rounded border ${a.speech ? 'bg-violet-600 text-white border-violet-600' : 'bg-white text-slate-400 border-slate-300'}`}>인사말씀 {a.speech ? '○' : '×'}</span>
+                        {isAdmin && <span className="ml-auto text-slate-400">누르면 체크 창</span>}
+                      </div>
                     </div>
                   );
                 })}
@@ -430,6 +430,57 @@ function BoardView({ attendees, stats, program, isAdmin, setStatus, toggleSpeech
           );
         })}
         {!visible.length && <div className="text-xs text-slate-400 text-center py-6">해당하는 내빈이 없습니다</div>}
+      </div>
+      {sheet != null && (() => { const a = attendees.find(x => x.id === sheet); return a ? <ActionSheet a={a} onClose={() => setSheet(null)} setStatus={setStatus} toggleSpeech={toggleSpeech} toggleIntro={toggleIntro} updateAttendee={updateAttendee} /> : null; })()}
+    </div>
+  );
+}
+
+// =====================================================================
+// 체크 창 (카드 누르면) — 도착 · 착석 · 내빈소개 · 인사말씀
+// =====================================================================
+function ActionSheet({ a, onClose, setStatus, toggleSpeech, toggleIntro, updateAttendee }) {
+  const Big = ({ on, cls, onClick, children }) => (
+    <button onClick={onClick} className={`rounded-xl border-2 py-4 text-base font-bold flex flex-col items-center gap-1 transition ${on ? cls : 'bg-white border-slate-200 text-slate-500 hover:border-slate-400'}`}>{children}</button>
+  );
+  const present = PRESENT.includes(a.status);
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-3" onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl p-4 w-full max-w-md shadow-2xl">
+        <div className="flex items-start gap-2 mb-3">
+          <div className="min-w-0">
+            <div className="text-2xl font-bold leading-tight">{a.name} <span className="text-base font-medium text-slate-600">{a.position}</span></div>
+            <div className="text-sm text-slate-500">{a.organization} · <span className="font-mono">{a.seat}</span></div>
+          </div>
+          <div className="ml-auto flex items-center gap-2 shrink-0"><StatusChip status={a.status} /><button onClick={onClose} className="text-slate-400"><X className="w-5 h-5" /></button></div>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <Big on={a.status === '도착'} cls="bg-amber-500 border-amber-500 text-white" onClick={() => setStatus(a.id, a.status === '도착' ? '미도착' : '도착')}>
+            <span className="text-2xl">🚶</span>도착{a.arrivalTime && <span className="text-[11px] font-mono opacity-80">{a.arrivalTime}</span>}
+          </Big>
+          <Big on={a.status === '착석'} cls="bg-emerald-600 border-emerald-600 text-white" onClick={() => setStatus(a.id, a.status === '착석' ? '도착' : '착석')}>
+            <span className="text-2xl">💺</span>착석{a.seatedTime && <span className="text-[11px] font-mono opacity-80">{a.seatedTime}</span>}
+          </Big>
+          <Big on={a.intro} cls="bg-slate-800 border-slate-800 text-white" onClick={() => toggleIntro(a.id, !a.intro)}>
+            <span className="text-2xl">📣</span>내빈 소개 {a.intro ? '○' : '×'}
+          </Big>
+          <Big on={a.speech} cls="bg-violet-600 border-violet-600 text-white" onClick={() => toggleSpeech(a.id, !a.speech)}>
+            <span className="text-2xl">🎤</span>인사말씀 {a.speech ? '○' : '×'}
+          </Big>
+        </div>
+        {a.speech && (
+          <div className="mt-2 flex items-center gap-2 text-sm">
+            <span className="text-slate-600">인사말씀 종류</span>
+            <div className="flex flex-wrap gap-1">{SPEECH_TYPES.map(t => <button key={t} onClick={() => updateAttendee(a.id, { speechType: t })} className={`px-2 py-1 rounded-md text-xs font-semibold border ${a.speechType === t ? 'bg-violet-600 text-white border-violet-600' : 'bg-white text-slate-600 border-slate-300'}`}>{t}</button>)}</div>
+          </div>
+        )}
+        <div className="mt-3 pt-3 border-t border-slate-200 flex items-center gap-1.5 text-xs">
+          <button onClick={() => setStatus(a.id, '퇴장')} className="btn btn-outline">퇴장</button>
+          <button onClick={() => setStatus(a.id, '불참')} className="btn btn-outline text-rose-600 border-rose-300">불참</button>
+          <button onClick={() => setStatus(a.id, '미도착')} className="btn btn-outline"><RotateCcw className="w-3 h-3" />초기화</button>
+          <button onClick={onClose} className="btn btn-dark ml-auto px-4">닫기</button>
+        </div>
+        {!present && a.speech && <div className="mt-2 text-[11px] text-rose-600 font-semibold">※ 인사말씀 대상인데 아직 미도착입니다. 인쇄 전 확인하세요.</div>}
       </div>
     </div>
   );
