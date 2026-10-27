@@ -7,7 +7,7 @@ import { Users, Crown, MapPin, Clock, BarChart3, Mic2, FileText, Bell, X, Lock, 
 // =====================================================================
 
 const STORE_KEY = 'mars-vip-platform-v2';
-const APP_VERSION = '3.7.1';
+const APP_VERSION = '3.8.0';
 
 // ---------- 초기 자료 ----------
 const DEFAULT_EVENT = {
@@ -1420,36 +1420,31 @@ function EditModal({ a, onClose, updateAttendee, onDelete }) {
 // =====================================================================
 // 카톡 중간보고
 // =====================================================================
-const buildKakaoReport = ({ stats, attendees, event, speechOrder, detail }) => {
+const buildKakaoReport = ({ stats, attendees, event, speechOrder, kind }) => {
   const d = new Date(); const wd = '일월화수목금토'[d.getDay()];
   const stamp = `${d.getMonth() + 1}.${d.getDate()}.(${wd}) ${nowHM()}`;
   const speakers = speakerList(attendees, speechOrder);
-  const recent = attendees.filter(a => PRESENT.includes(a.status)).sort((a, b) => (b.arrivalTime || '').localeCompare(a.arrivalTime || ''));
-  const cats = [...new Set(attendees.map(a => a.category))].map(c => { const l = attendees.filter(a => a.category === c); return `${c} ${l.filter(a => PRESENT.includes(a.status)).length}/${l.length}`; });
-  const lines = [
-    `[${event.name} 내빈 현황]`,
-    `${stamp} 기준`,
-    ``,
-    `■ 참석 ${stats.present}/${stats.total}명 (${stats.rate}%)`,
-    ...(stats.absent ? [` - 불참 ${stats.absent}`] : []),
-    ``,
-    `■ 인사말씀 ${stats.speakersPresent}/${stats.speakers}명 도착`,
-    ...speakers.map((a, i) => ` ${i + 1}) ${a.speechType} ${a.name} ${a.position} ${PRESENT.includes(a.status) ? ' — 도착 ✔' : a.status === '불참' ? ' — 불참' : ''}`),
-  ];
-  if (detail) {
-    lines.push('', '■ 구분별 참석', ' ' + cats.join(' / '));
-    if (recent.length) lines.push('', `■ 도착 ${recent.length}명`, ...recent.map(a => ` · ${a.name} ${a.position}(${a.organization}) ${a.arrivalTime || ''}`));
-    const absents = attendees.filter(a => a.status === '불참'); if (absents.length) lines.push('', `■ 불참 ${absents.length}명`, ' ' + absents.map(a => `${a.name} ${a.position}`).join(', '));
-  }
-  lines.push('', '※ AI스마트전략실 내빈 운영 현황');
-  return lines.join('\n');
+  const present = attendees.filter(a => PRESENT.includes(a.status)).sort(byRank);
+  const absent = attendees.filter(a => a.status === '불참').sort(byRank);
+  const who = a => `${a.name} ${a.position}(${a.organization})`;
+  const title = { all: '내빈 현황', present: '참석 내빈', absent: '불참 내빈', speech: '인사말씀' }[kind];
+  const head = [`[${event.name} ${title}]`, `${stamp} 기준`, ''];
+  const sum = [`■ 초청 ${stats.total}명 · 참석 ${stats.present}명(${stats.rate}%) · 불참 ${stats.absent}명`];
+  const pBlock = [`■ 참석 ${present.length}명`, ...(present.length ? present.map((a, i) => ` ${i + 1}. ${who(a)}`) : [' · 없음'])];
+  const aBlock = [`■ 불참 ${absent.length}명`, ...(absent.length ? absent.map((a, i) => ` ${i + 1}. ${who(a)}`) : [' · 없음'])];
+  const sBlock = [`■ 인사말씀 ${stats.speakersPresent}/${stats.speakers}명 도착`, ...speakers.map((a, i) => ` ${i + 1}) ${a.speechType} ${a.name} ${a.position}${PRESENT.includes(a.status) ? ' — 도착 ✔' : a.status === '불참' ? ' — 불참' : ''}`)];
+  const body = kind === 'present' ? [...sum, '', ...pBlock]
+    : kind === 'absent' ? [...sum, '', ...aBlock]
+    : kind === 'speech' ? sBlock
+    : [...sum, '', ...sBlock, '', ...pBlock, '', ...aBlock];
+  return [...head, ...body, '', '※ AI스마트전략실 내빈 운영 현황'].join('\n');
 };
 
 function KakaoReportModal({ onClose, stats, attendees, event, speechOrder, notify }) {
-  const [detail, setDetail] = useState(false);
+  const [kind, setKind] = useState('all');
   const [text, setText] = useState('');
   const [touched, setTouched] = useState(false);
-  useEffect(() => { if (!touched) setText(buildKakaoReport({ stats, attendees, event, speechOrder, detail })); }, [detail, stats, attendees, touched]);
+  useEffect(() => { if (!touched) setText(buildKakaoReport({ stats, attendees, event, speechOrder, kind })); }, [kind, stats, attendees, touched]);
   const canShare = typeof navigator !== 'undefined' && !!navigator.share && !EMBEDDED;
   const copy = async () => { try { await navigator.clipboard.writeText(text); notify('복사했습니다. 카톡 대화방에 붙여넣으세요'); } catch { document.getElementById('kakao-text')?.select(); notify('글자가 선택되었습니다. 길게 눌러 복사하세요'); } };
   const share = async () => { if (!canShare) return copy(); try { await navigator.share({ text }); } catch (e) { if (e?.name !== 'AbortError') copy(); } };
@@ -1459,9 +1454,10 @@ function KakaoReportModal({ onClose, stats, attendees, event, speechOrder, notif
         <div className="bg-[#FEE500] px-4 py-3 flex items-center gap-2"><MessageCircle className="w-5 h-5" /><h3 className="font-bold text-[#191919]">카톡 중간보고</h3><button onClick={onClose} className="ml-auto"><X className="w-5 h-5" /></button></div>
         <div className="p-4 space-y-3">
           <div className="flex items-center gap-2">
-            <div className="flex rounded-md border border-slate-300 overflow-hidden text-xs font-semibold">
-              <button onClick={() => { setDetail(false); setTouched(false); }} className={`px-3 py-1.5 ${!detail ? 'bg-slate-900 text-white' : 'bg-white'}`}>간단</button>
-              <button onClick={() => { setDetail(true); setTouched(false); }} className={`px-3 py-1.5 ${detail ? 'bg-slate-900 text-white' : 'bg-white'}`}>상세(도착 명단)</button>
+            <div className="flex w-full rounded-md border border-slate-300 overflow-hidden text-xs font-semibold">
+              {[['all', `전체`], ['present', `참석 ${stats.present}`], ['absent', `불참 ${stats.absent}`], ['speech', `인사말씀 ${stats.speakersPresent}/${stats.speakers}`]].map(([k, l]) => (
+                <button key={k} onClick={() => { setKind(k); setTouched(false); }} className={`flex-1 px-2 py-1.5 whitespace-nowrap ${kind === k ? 'bg-slate-900 text-white' : 'bg-white'}`}>{l}</button>
+              ))}
             </div>
             {touched && <button onClick={() => setTouched(false)} className="text-xs text-indigo-700 underline">최신 현황으로 다시 작성</button>}
           </div>
