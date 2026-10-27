@@ -7,7 +7,7 @@ import { Users, Crown, MapPin, Clock, BarChart3, Mic2, FileText, Bell, X, Lock, 
 // =====================================================================
 
 const STORE_KEY = 'mars-vip-platform-v2';
-const APP_VERSION = '3.6.0';
+const APP_VERSION = '3.6.1';
 
 // ---------- 초기 자료 ----------
 const DEFAULT_EVENT = {
@@ -612,7 +612,7 @@ function BoardView({ attendees, stats, program, isAdmin, setStatus, toggleSpeech
           <button onClick={() => setBig(v => !v)} className={`btn px-2 sm:order-last ${big ? 'btn-dark' : 'btn-outline'}`}>{big ? '크게 ✓' : '크게'}</button>
           <button onClick={printSpeech} className="btn btn-primary px-2 sm:order-last"><Printer className="w-3 h-3" />인사말씀 인쇄 ({stats.speakersPresent}/{stats.speakers})</button>
           <div className="w-full sm:w-auto flex gap-1 overflow-x-auto">
-            {['전체', ...STATUSES, '인사말씀'].map(f => {
+            {['전체', ...STATUSES.filter(x => x !== '미도착'), '인사말씀'].map(f => {
               const n = f === '전체' ? attendees.length : f === '인사말씀' ? attendees.filter(a => a.speech).length : attendees.filter(a => a.status === f).length;
               return <button key={f} onClick={() => setFilter(f)} className={`shrink-0 px-2 py-0.5 rounded-md text-[11px] font-semibold border ${filter === f ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'}`}>{f} <span className="opacity-60">{n}</span></button>;
             })}
