@@ -7,7 +7,7 @@ import { Users, Crown, MapPin, Clock, BarChart3, Mic2, FileText, Bell, X, Lock, 
 // =====================================================================
 
 const STORE_KEY = 'mars-vip-platform-v2';
-const APP_VERSION = '3.9.0';
+const APP_VERSION = '3.9.1';
 
 // ---------- 초기 자료 ----------
 const DEFAULT_EVENT = {
@@ -1466,22 +1466,30 @@ function KakaoReportModal({ onClose, stats, attendees, event, speechOrder, notif
 // =====================================================================
 // 안내 (사용 설명서)
 // =====================================================================
-function GuideView({ state, stats, sync, isAdmin }) {
-  const kb = Math.round(JSON.stringify(stripLocal(state)).length / 1024);
-  const Sec = ({ title, open, children }) => (
-    <details open={open} className="card group">
-      <summary className="cursor-pointer select-none list-none px-3 py-2.5 flex items-center gap-2 font-bold text-sm">
-        <span className="text-slate-400 group-open:rotate-90 transition-transform">▸</span>{title}
-      </summary>
-      <div className="px-4 pb-3 text-[13px] leading-relaxed text-slate-700 space-y-2">{children}</div>
-    </details>
+// 안내 탭 부품 — 화면 갱신(4초)에도 펼친 상태가 유지되도록 바깥에 둠
+function GuideSec({ id, title, open, children }) {
+  const key = 'mars-guide-' + id;
+  const [isOpen, setOpen] = useState(() => { const v = lsSafe.get(key, null); return v == null ? !!open : v === '1'; });
+  const toggle = () => setOpen(v => { lsSafe.set(key, v ? '0' : '1'); return !v; });
+  return (
+    <div className="card">
+      <button onClick={toggle} className="w-full text-left px-3 py-2.5 flex items-center gap-2 font-bold text-sm">
+        <span className={`text-slate-400 transition-transform ${isOpen ? 'rotate-90' : ''}`}>▸</span>{title}
+      </button>
+      {isOpen && <div className="px-4 pb-3 text-[13px] leading-relaxed text-slate-700 space-y-2">{children}</div>}
+    </div>
   );
-  const T = ({ rows, head }) => (
+}
+function GuideTable({ rows, head }) {
+  return (
     <div className="overflow-x-auto"><table className="w-full text-[12px] border-collapse">
       {head && <thead><tr className="bg-slate-100">{head.map(h => <th key={h} className="border border-slate-200 px-2 py-1 text-left whitespace-nowrap">{h}</th>)}</tr></thead>}
       <tbody>{rows.map((r, i) => <tr key={i}>{r.map((c, j) => <td key={j} className={`border border-slate-200 px-2 py-1 align-top ${j === 0 ? 'font-semibold whitespace-nowrap bg-slate-50' : ''}`}>{c}</td>)}</tr>)}</tbody>
     </table></div>
   );
+}
+function GuideView({ state, stats, sync, isAdmin }) {
+  const kb = Math.round(JSON.stringify(stripLocal(state)).length / 1024);
   return (
     <div className="space-y-2 max-w-3xl">
       <div className="card px-3 py-2 text-[12px] text-slate-600 flex flex-wrap gap-x-4 gap-y-1">
@@ -1491,7 +1499,7 @@ function GuideView({ state, stats, sync, isAdmin }) {
         <span>공유 자료 크기 <b>{kb}KB</b></span>
       </div>
 
-      <Sec title="1. 이 플랫폼은" open>
+      <GuideSec id="about" title="1. 이 플랫폼은" open>
         <p>AI EXPO 「MARS 2026」 개막식(2026. 11. 3.) <b>내빈 도착 확인 · 내빈 소개 · 인사말씀 순서</b>를 여러 사람이 핸드폰으로 함께 관리하는 화면입니다.</p>
         <ul className="list-disc pl-5 space-y-0.5">
           <li><b>링크 하나로 공유</b>: 설치·회원가입 없이 주소만 열면 됩니다. 핸드폰·태블릿·노트북 모두 같은 자료를 봅니다(4초 간격 갱신).</li>
@@ -1500,9 +1508,9 @@ function GuideView({ state, stats, sync, isAdmin }) {
           <li><b>사회자 멘트·인쇄·카톡 보고</b>: 도착한 사람 기준으로 멘트가 자동 작성되고, A4 인쇄와 카톡 중간보고(전체·참석·불참·인사말씀)가 됩니다.</li>
           <li><b>현장 와이파이 대비</b>: 연결이 끊겨도 체크는 기기에 보관되고, 다시 연결되면 자동으로 올라갑니다.</li>
         </ul>
-      </Sec>
+      </GuideSec>
 
-      <Sec title="2. 사용법" open={isAdmin}>
+      <GuideSec id="howto" title="2. 사용법" open={isAdmin}>
         <p className="font-bold">① 조회만 하는 분(사회자·수행비서 등)</p>
         <ul className="list-disc pl-5"><li>링크를 열면 끝입니다. <b>현황판</b>에서 도착 인원과 명단, <b>인사말씀·소개</b>에서 순서와 멘트를 봅니다.</li></ul>
         <p className="font-bold pt-1">② 관리자(체크 담당)</p>
@@ -1516,16 +1524,16 @@ function GuideView({ state, stats, sync, isAdmin }) {
           <li><b>카톡 보고</b>: 머리글 「보고」 → 전체·참석·불참·인사말씀 중 선택 → 「카톡으로 보내기」 또는 「복사」 후 대화방에 붙여넣기.</li>
         </ul>
         <p className="font-bold pt-1">③ 일정별 할 일</p>
-        <T head={['시점', '할 일']} rows={[
+        <GuideTable head={['시점', '할 일']} rows={[
           ['지금 ~ 11. 2.', '3차 RSVP 반영(내빈 관리 → 더보기 → 엑셀 붙여넣기 또는 1명씩) → 의전 담당 확인 → 「의전순 적용」 → 관리자 비밀번호 변경'],
           ['11. 2.(월) 리허설', '관리자 핸드폰 2대로 도착 체크 → 노트북에서 인쇄·카톡 보고 시험 → 설정 「백업 파일 내려받기」'],
           ['11. 3.(화) 아침', '내빈 관리 → 더보기 → 「상태 초기화」(시험 기록 삭제) → 운영진에게 링크·비밀번호 공유'],
           ['행사 중', '도착 체크 → 11:15쯤 인사말씀 인쇄해 사회자 전달 → 필요 시 카톡 중간보고'],
           ['행사 후', '결과 요약 복사(보고용) · 엑셀(CSV) 저장 → 정리(아래 6번)'],
         ]} />
-      </Sec>
+      </GuideSec>
 
-      <Sec title="3. 유의사항">
+      <GuideSec id="caution" title="3. 유의사항">
         <ul className="list-disc pl-5 space-y-0.5">
           <li><b>비밀번호</b>: 영문+숫자 6자리 이상으로 바꾸고 관리자에게만 알려 주세요. 바꾸면 다른 관리자 기기는 자동으로 조회 모드가 되어 새 비밀번호로 다시 입장해야 합니다.</li>
           <li><b>링크 공유 범위</b>: 링크를 아는 사람은 누구나 내빈 명단(이름·직위·소속)을 볼 수 있습니다. 운영진 대화방 등 필요한 범위에만 공유하세요.</li>
@@ -1535,11 +1543,11 @@ function GuideView({ state, stats, sync, isAdmin }) {
           <li><b>크롬 자동 번역은 꺼 주세요.</b> 화면이 깨질 수 있습니다.</li>
           <li>예전에 내려받은 HTML 파일은 서버에 저장되지 않습니다. 반드시 Vercel 주소를 쓰세요.</li>
         </ul>
-      </Sec>
+      </GuideSec>
 
-      <Sec title="4. 사용 기간 · 비용">
+      <GuideSec id="cost" title="4. 사용 기간 · 비용">
         <p><b>비용은 들지 않습니다.</b> Vercel(화면)은 무료 Hobby 요금제, Supabase(자료 저장)는 무료 Free 요금제입니다. 두 요금제 모두 사용량에 따른 추가 요금이 없어서, 한도를 넘으면 <b>요금이 청구되는 대신 해당 기능이 멈춥니다.</b> 유료 요금제로 직접 바꾸지 않는 한 비용은 생기지 않습니다.</p>
-        <T head={['구분', '무료 한도(월)', '이번 행사 예상 사용량', '한도를 넘으면']} rows={[
+        <GuideTable head={['구분', '무료 한도(월)', '이번 행사 예상 사용량', '한도를 넘으면']} rows={[
           ['Vercel (화면 전송)', '데이터 전송 100GB · 요청 100만 건', '50명 × 수십 회 접속 ≈ 0.1GB 안팎', '최대 30일 정지(요금 없음)'],
           ['Supabase (공유 자료)', '데이터 송신 5GB · 저장 500MB', '50명 3시간 사용 ≈ 0.3GB 안팎 · 저장 약 ' + kb + 'KB', '서비스 제한(요금 없음)'],
         ]} />
@@ -1550,9 +1558,9 @@ function GuideView({ state, stats, sync, isAdmin }) {
           <li><b>참고</b>: Vercel 무료(Hobby) 요금제는 원칙적으로 개인·비상업 용도입니다. 시 공식 사업으로 계속 운영하려면 유료 요금제나 시 서버 이관을 검토하세요.</li>
           <li className="text-[11px] text-slate-500">한도는 2026년 10월 확인 기준이며 서비스 회사 사정에 따라 바뀔 수 있습니다.</li>
         </ul>
-      </Sec>
+      </GuideSec>
 
-      <Sec title="5. 만들어진 구조">
+      <GuideSec id="arch" title="5. 만들어진 구조">
         <pre className="text-[11px] leading-snug bg-slate-50 border border-slate-200 rounded p-2 overflow-x-auto whitespace-pre">{`[핸드폰·태블릿·노트북 (브라우저)]
    │  ① 화면 내려받기 (최초 1회)
    ▼
@@ -1562,7 +1570,7 @@ function GuideView({ state, stats, sync, isAdmin }) {
    │  ③ 관리자가 체크하면 비밀번호와 함께 저장 요청
    ▼
 [Supabase]  공유 자료 1건(행사 전체 자료) · 비밀번호는 서버에만 보관`}</pre>
-        <T rows={[
+        <GuideTable rows={[
           ['화면', 'React + Vite로 만든 한 페이지 웹 화면, Vercel에서 배포'],
           ['공유 저장소', 'Supabase(PostgreSQL) 표 1개, 행사 자료를 한 묶음(JSON)으로 저장'],
           ['권한', '읽기는 누구나 · 쓰기는 비밀번호가 맞을 때만 서버가 허용 · 비밀번호 칸은 아무도 읽을 수 없음'],
@@ -1570,15 +1578,15 @@ function GuideView({ state, stats, sync, isAdmin }) {
           ['기기 저장', '각 기기에도 사본을 보관 → 연결이 끊겨도 화면·체크 유지, 복구되면 자동 반영'],
           ['기기별 설정', '좌석 배치도 보기(한 열 좌석 수 등)·글자 크기는 기기마다 따로'],
         ]} />
-      </Sec>
+      </GuideSec>
 
-      <Sec title="6. 행사 후 정리 (개인정보)">
+      <GuideSec id="after" title="6. 행사 후 정리 (개인정보)">
         <ul className="list-disc pl-5 space-y-0.5">
           <li>결과 요약 복사 · 엑셀(CSV) 저장 · 설정 「백업 파일 내려받기」로 기록을 남깁니다.</li>
           <li>보관이 끝나면 설정 「초기 자료로 되돌리기」로 공유 자료를 비우거나, 링크 공유를 중단하세요.</li>
           <li>다음 행사에 다시 쓰려면 내빈 명단만 엑셀 붙여넣기로 바꾸면 됩니다.</li>
         </ul>
-      </Sec>
+      </GuideSec>
 
       <div className="text-[11px] text-slate-400 px-1">문의: AI스마트전략실(AI전략팀) ☎ 3652</div>
     </div>
