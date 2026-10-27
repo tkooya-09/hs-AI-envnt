@@ -7,7 +7,7 @@ import { Users, Crown, MapPin, Clock, BarChart3, Mic2, FileText, Bell, X, Lock, 
 // =====================================================================
 
 const STORE_KEY = 'mars-vip-platform-v2';
-const APP_VERSION = '3.7.0';
+const APP_VERSION = '3.7.1';
 
 // ---------- 초기 자료 ----------
 const DEFAULT_EVENT = {
@@ -141,7 +141,7 @@ const loadState = () => {
 };
 
 // ---------- 상수 ----------
-const STATUSES = ['미도착', '도착', '퇴장', '불참'];
+const STATUSES = ['미도착', '도착', '불참'];
 const PRESENT = ['도착', '착석'];
 const STATUS_STYLE = {
   '미도착': 'bg-slate-100 text-slate-600 border-slate-300',
@@ -161,8 +161,8 @@ const GRADE_STYLES = {
 // ---------- 공유 저장소(Supabase) ----------
 const SYNC = { url: 'https://sbnjodqxvwgqgdnzcziz.supabase.co', key: 'sb_publishable_vDOafQ_YqlElOwBxLeHHvA_x1mgHGLw', table: 'event_state', id: 'mars-2026' };
 const SYNC_ON = SYNC.url.startsWith('http');
-const normAtt = (a) => (a.status === '착석' ? { ...a, status: '도착' } : a);
-const normState = (st) => (st && st.attendees && st.attendees.some(a => a.status === '착석') ? { ...st, attendees: st.attendees.map(normAtt) } : st);
+const normAtt = (a) => (a.status === '착석' || a.status === '퇴장' ? { ...a, status: '도착' } : a);
+const normState = (st) => (st && st.attendees && st.attendees.some(a => a.status === '착석' || a.status === '퇴장') ? { ...st, attendees: st.attendees.map(normAtt) } : st);
 const mergeState = (local, remote) => {
   if (!remote) return local;
   if (!local) return remote;
@@ -508,7 +508,6 @@ function StatusButtons({ a, setStatus, compact }) {
   return (
     <div className="flex flex-wrap gap-1">
       {btn('도착', 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700')}
-      {btn('퇴장', 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50')}
       {btn('불참', 'bg-white text-rose-600 border-rose-300 hover:bg-rose-50')}
       <button onClick={() => setStatus(a.id, '미도착')} title="초기화" className={`${compact ? 'px-1.5 py-1' : 'px-2 py-1.5'} rounded border border-slate-200 text-slate-400 hover:bg-slate-50`}><RotateCcw className="w-3 h-3" /></button>
     </div>
@@ -571,7 +570,7 @@ function BoardView({ attendees, stats, program, isAdmin, setStatus, toggleSpeech
       <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
         <KPI label="초청" value={stats.total} />
         <KPI label="도착" value={stats.present} sub={`${stats.rate}%`} tone="emerald" />
-        <KPI label="불참" value={stats.absent + stats.left} tone="rose" />
+        <KPI label="불참" value={stats.absent} tone="rose" />
         <KPI label="말씀" value={`${stats.speakersPresent}/${stats.speakers}`} tone="violet" />
       </div>
 
@@ -698,7 +697,6 @@ function ActionSheet({ a, onClose, setStatus, toggleSpeech, toggleIntro, updateA
           </div>
         )}
         <div className="mt-3 pt-3 border-t border-slate-200 flex items-center gap-1.5 text-xs">
-          <button onClick={() => setStatus(a.id, '퇴장')} className="btn btn-outline">퇴장</button>
           <button onClick={() => setStatus(a.id, '불참')} className="btn btn-outline text-rose-600 border-rose-300">불참</button>
           <button onClick={() => setStatus(a.id, '미도착')} className="btn btn-outline"><RotateCcw className="w-3 h-3" />초기화</button>
           <button onClick={onClose} className="btn btn-dark ml-auto px-4">닫기</button>
@@ -1296,7 +1294,7 @@ function ReportView({ stats, attendees, event, speechOrder, notify }) {
   const text = `▣ ${event.name} 내빈 참석 결과 (${new Date().toLocaleString('ko-KR')} 기준)
  · 초청 내빈 : ${stats.total}명
  · 참석 : ${stats.present}명 (${stats.rate}%) 
- · 불참 ${stats.absent}명${stats.left ? ` / 퇴장 ${stats.left}명` : ''}
+ · 불참 ${stats.absent}명
 
 ▣ 인사말씀 (${speakers.length}명)
 ${speakers.map((a, i) => ` ${i + 1}. ${a.speechType} — ${honor(a)} [${a.status}]`).join('\n')}
