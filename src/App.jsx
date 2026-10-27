@@ -7,7 +7,7 @@ import { Users, Crown, MapPin, Clock, BarChart3, Mic2, FileText, Bell, X, Lock, 
 // =====================================================================
 
 const STORE_KEY = 'mars-vip-platform-v2';
-const APP_VERSION = '3.6.1';
+const APP_VERSION = '3.7.0';
 
 // ---------- 초기 자료 ----------
 const DEFAULT_EVENT = {
@@ -496,6 +496,7 @@ export default function App() {
 // 공통 부품
 // =====================================================================
 function StatusChip({ status, small }) {
+  if (status === '미도착') return null;
   return <span className={`inline-flex items-center gap-1 rounded border ${small ? 'px-1.5 py-0 text-[10px]' : 'px-2 py-0.5 text-xs'} ${STATUS_STYLE[status]}`}><span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[status]}`} />{status}</span>;
 }
 
@@ -567,10 +568,9 @@ function BoardView({ attendees, stats, program, isAdmin, setStatus, toggleSpeech
   return (
     <div className="space-y-3">
       {/* 핵심 지표 */}
-      <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
+      <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
         <KPI label="초청" value={stats.total} />
         <KPI label="도착" value={stats.present} sub={`${stats.rate}%`} tone="emerald" />
-        <KPI label="미도착" value={stats.notArrived} tone="amber" />
         <KPI label="불참" value={stats.absent + stats.left} tone="rose" />
         <KPI label="말씀" value={`${stats.speakersPresent}/${stats.speakers}`} tone="violet" />
       </div>
@@ -641,7 +641,7 @@ function BoardView({ attendees, stats, program, isAdmin, setStatus, toggleSpeech
                         <span className={`shrink-0 font-bold text-slate-900 leading-tight ${big ? 'text-xl' : 'text-[16px]'}`}>{a.name}</span>
                         <span className={`min-w-0 truncate text-slate-700 ${big ? 'text-sm' : 'text-[12px]'}`}>{a.position}</span>
                         {a.speech && <span className="shrink-0 text-[10px] font-bold px-1 rounded bg-violet-600 text-white">{a.speechType}</span>}
-                        <span className={`ml-auto shrink-0 px-1.5 py-0.5 rounded font-bold text-[11px] ${badge}`}>{a.status}</span>
+                        {a.status !== '미도착' && <span className={`ml-auto shrink-0 px-1.5 py-0.5 rounded font-bold text-[11px] ${badge}`}>{a.status}</span>}
                       </div>
                       <div className="flex items-center gap-1.5 text-[11px] text-slate-400 min-w-0 leading-tight mt-0.5">
                         <span className="min-w-0 truncate">{a.organization}</span>
@@ -703,7 +703,7 @@ function ActionSheet({ a, onClose, setStatus, toggleSpeech, toggleIntro, updateA
           <button onClick={() => setStatus(a.id, '미도착')} className="btn btn-outline"><RotateCcw className="w-3 h-3" />초기화</button>
           <button onClick={onClose} className="btn btn-dark ml-auto px-4">닫기</button>
         </div>
-        {!present && a.speech && <div className="mt-2 text-[11px] text-rose-600 font-semibold">※ 인사말씀 대상인데 아직 미도착입니다. 인쇄 전 확인하세요.</div>}
+        {!present && a.speech && <div className="mt-2 text-[11px] text-rose-600 font-semibold">※ 인사말씀 대상인데 아직 도착 체크가 안 됐습니다.</div>}
       </div>
     </div>
   );
@@ -769,7 +769,7 @@ function OrderList({ ids, attendees, setOrder, editable, renderExtra, onRemove, 
                 <div className="text-[11px] text-slate-400 truncate">{a.organization}</div>
               </div>
               {renderExtra && <span className="shrink-0" onClick={e => e.stopPropagation()}>{renderExtra(a)}</span>}
-              <span className={`shrink-0 w-9 text-right text-[11px] font-bold ${TXT[a.status]}`}>{a.status === '미도착' ? '미도착' : a.status}</span>
+              <span className={`shrink-0 w-9 text-right text-[11px] font-bold ${TXT[a.status]}`}>{a.status === '미도착' ? '' : a.status}</span>
               {editable && (
                 <div className="hidden sm:flex items-center shrink-0" onClick={e => e.stopPropagation()}>
                   <button onClick={() => move(i, Math.max(0, i - 1))} className="text-slate-400 hover:text-slate-800 px-1 text-xs">▲</button>
@@ -979,7 +979,7 @@ function SeatView({ attendees, layout, setLayout, isAdmin, setStatus, toggleSpee
         )}
         {/* 범례 */}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-600">
-          {['도착', '미도착', '불참'].map(st => (
+          {['도착', '불참'].map(st => (
             <span key={st} className="inline-flex items-center gap-1"><span className={`w-3.5 h-3.5 rounded border ${SEAT_TONE[st]}`} />{st} <b className="tabular-nums">{count(st)}</b></span>
           ))}
           <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-violet-600" />인사말씀</span>
@@ -1098,7 +1098,7 @@ function ManageView({ applyProtocol, onQuickAdd, attendees, updateAttendee, addA
   const [more, setMore] = useState(false);
   const [sort, setSort] = useState(() => { try { return localStorage.getItem('mars-manage-sort') || 'rank'; } catch { return 'rank'; } });
   useEffect(() => { try { localStorage.setItem('mars-manage-sort', sort); } catch {} }, [sort]);
-  const ST_ORDER = { '미도착': 0, '도착': 1, '착석': 1, '불참': 3, '퇴장': 4 };
+  const ST_ORDER = { '도착': 0, '착석': 0, '미도착': 1, '불참': 3, '퇴장': 4 };
   const sorter = { rank: byRank, reg: (x, y) => x.id - y.id, seat: (x, y) => (x.seat || '~').localeCompare(y.seat || '~'), name: (x, y) => x.name.localeCompare(y.name, 'ko'), status: (x, y) => ST_ORDER[x.status] - ST_ORDER[y.status] || byRank(x, y) }[sort];
   const shown = attendees.filter(a => !q.trim() || `${a.name}${a.organization}${a.position}${a.category}${a.seat}`.includes(q.trim())).sort(sorter);
   const doProtocol = async () => { if (await askUser('의전 순위대로 맞춥니다.\n· 내빈 소개 순서를 의전순으로\n· 인사말씀 순서를 의전순으로\n· 좌석을 구역별로 1열 가운데부터(가운데 → 좌우 교대)\n\n지금 순서와 좌석이 바뀝니다. 계속할까요?')) { applyProtocol(); notify('의전순으로 맞췄습니다'); } };
@@ -1122,7 +1122,7 @@ function ManageView({ applyProtocol, onQuickAdd, attendees, updateAttendee, addA
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
     const a = document.createElement('a'); a.href = url; a.download = `내빈현황_${new Date().toISOString().slice(0, 10)}.csv`; a.click();
   };
-  const resetStatus = async () => { if (await askUser('모든 내빈의 도착 상태를 미도착으로 되돌립니다. 계속할까요?')) patch(s => ({ attendees: s.attendees.map(a => ({ ...a, status: '미도착', arrivalTime: null, seatedTime: null })) })); };
+  const resetStatus = async () => { if (await askUser('모든 내빈의 도착·불참 체크를 지웁니다. 계속할까요?')) patch(s => ({ attendees: s.attendees.map(a => ({ ...a, status: '미도착', arrivalTime: null, seatedTime: null })) })); };
   const reseat = async () => { if (await askUser('현재 목록 순서대로 좌석번호(A-01~)를 다시 매깁니다. 계속할까요?')) patch(s => ({ attendees: s.attendees.map((a, i) => ({ ...a, seat: `A-${String(i + 1).padStart(2, '0')}` })) })); };
 
   return (
@@ -1144,7 +1144,7 @@ function ManageView({ applyProtocol, onQuickAdd, attendees, updateAttendee, addA
       </div>
       <div className="flex items-center gap-1 mb-1.5 overflow-x-auto text-xs">
         <span className="text-slate-500 shrink-0">정렬</span>
-        {[['rank', '의전순'], ['status', '미도착 먼저'], ['seat', '좌석순'], ['name', '가나다순'], ['reg', '등록순']].map(([k, l]) => (
+        {[['rank', '의전순'], ['status', '도착 먼저'], ['seat', '좌석순'], ['name', '가나다순'], ['reg', '등록순']].map(([k, l]) => (
           <button key={k} onClick={() => setSort(k)} className={`shrink-0 px-2 py-0.5 rounded-full border font-semibold ${sort === k ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-300'}`}>{l}</button>
         ))}
       </div>
@@ -1296,13 +1296,13 @@ function ReportView({ stats, attendees, event, speechOrder, notify }) {
   const text = `▣ ${event.name} 내빈 참석 결과 (${new Date().toLocaleString('ko-KR')} 기준)
  · 초청 내빈 : ${stats.total}명
  · 참석 : ${stats.present}명 (${stats.rate}%) 
- · 미도착 ${stats.notArrived}명 / 불참 ${stats.absent}명 / 퇴장 ${stats.left}명
+ · 불참 ${stats.absent}명${stats.left ? ` / 퇴장 ${stats.left}명` : ''}
 
 ▣ 인사말씀 (${speakers.length}명)
 ${speakers.map((a, i) => ` ${i + 1}. ${a.speechType} — ${honor(a)} [${a.status}]`).join('\n')}
 
-▣ 미도착·불참 내빈
-${attendees.filter(a => !PRESENT.includes(a.status)).map(a => ` · ${honor(a)} (${a.status})`).join('\n') || ' · 없음'}`;
+▣ 불참 내빈
+${attendees.filter(a => a.status === '불참').map(a => ` · ${honor(a)} (${a.status})`).join('\n') || ' · 없음'}`;
   const byCat = [...new Set(attendees.map(a => a.category))].map(c => { const l = attendees.filter(a => a.category === c); return { c, t: l.length, p: l.filter(a => PRESENT.includes(a.status)).length }; });
 
   return (
@@ -1344,7 +1344,7 @@ function QuickAddModal({ onClose, attendees, onAdd }) {
           <label><span className="text-[11px] text-slate-500">등급</span><select className={inp} value={f.grade} onChange={e => setF({ ...f, grade: e.target.value })}>{GRADES.map(g => <option key={g}>{g}</option>)}</select></label>
           <label><span className="text-[11px] text-slate-500">좌석 구역</span><select className={inp} value={f.zone} onChange={e => setF({ ...f, zone: e.target.value })}>{(zones.length ? zones : ['A']).map(z => <option key={z} value={z}>{z} 구역 → {nextSeat(z)}</option>)}</select></label>
           <label><span className="text-[11px] text-slate-500">의전 순위</span><input type="number" min="1" className={inp} value={f.rank} onChange={e => setF({ ...f, rank: Number(e.target.value) })} /></label>
-          <label><span className="text-[11px] text-slate-500">현재 상태</span><select className={inp} value={f.status} onChange={e => setF({ ...f, status: e.target.value })}>{STATUSES.map(st => <option key={st}>{st}</option>)}</select></label>
+          <label><span className="text-[11px] text-slate-500">현재 상태</span><select className={inp} value={f.status} onChange={e => setF({ ...f, status: e.target.value })}>{STATUSES.filter(x => x !== '미도착').map(st => <option key={st}>{st}</option>)}</select></label>
           <label className="col-span-2 flex items-center gap-2 text-xs mt-1"><input type="checkbox" checked={f.speech} onChange={e => setF({ ...f, speech: e.target.checked })} className="accent-violet-600" />인사말씀 대상
             {f.speech && <select className="text-xs border border-violet-300 rounded px-1 py-0.5" value={f.speechType} onChange={e => setF({ ...f, speechType: e.target.value })}>{SPEECH_TYPES.map(t => <option key={t}>{t}</option>)}</select>}</label>
         </div>
@@ -1374,19 +1374,19 @@ function PrintSheet({ event, attendees, speechOrder, introOrder, stats }) {
       {mode === 'speech' ? (
         <table className="w-full text-sm border-collapse">
           <thead><tr className="bg-slate-100"><th className="border border-black px-2 py-1 w-10">순</th><th className="border border-black px-2 py-1 w-20">구분</th><th className="border border-black px-2 py-1">소속</th><th className="border border-black px-2 py-1">직위</th><th className="border border-black px-2 py-1">성명</th><th className="border border-black px-2 py-1 w-16">참석</th><th className="border border-black px-2 py-1 w-24">비고</th></tr></thead>
-          <tbody>{speakers.map((a, i) => <tr key={a.id}><td className="border border-black px-2 py-1.5 text-center font-bold">{i + 1}</td><td className="border border-black px-2 py-1.5 text-center font-bold">{a.speechType}</td><td className="border border-black px-2 py-1.5">{a.organization}</td><td className="border border-black px-2 py-1.5">{a.position}</td><td className="border border-black px-2 py-1.5 font-bold text-base">{a.name}</td><td className="border border-black px-2 py-1.5 text-center">{PRESENT.includes(a.status) ? '○' : '×'}</td><td className="border border-black px-2 py-1.5 text-xs">{a.note}</td></tr>)}</tbody>
+          <tbody>{speakers.map((a, i) => <tr key={a.id}><td className="border border-black px-2 py-1.5 text-center font-bold">{i + 1}</td><td className="border border-black px-2 py-1.5 text-center font-bold">{a.speechType}</td><td className="border border-black px-2 py-1.5">{a.organization}</td><td className="border border-black px-2 py-1.5">{a.position}</td><td className="border border-black px-2 py-1.5 font-bold text-base">{a.name}</td><td className="border border-black px-2 py-1.5 text-center">{PRESENT.includes(a.status) ? '○' : a.status === '불참' ? '불참' : ''}</td><td className="border border-black px-2 py-1.5 text-xs">{a.note}</td></tr>)}</tbody>
         </table>
       ) : (
         <table className="w-full text-xs border-collapse">
           <thead><tr className="bg-slate-100"><th className="border border-black px-1 py-1 w-8">순</th><th className="border border-black px-1 py-1 w-24">구분</th><th className="border border-black px-1 py-1">소속</th><th className="border border-black px-1 py-1">직위</th><th className="border border-black px-1 py-1 w-16">성명</th><th className="border border-black px-1 py-1 w-12">좌석</th><th className="border border-black px-1 py-1 w-10">참석</th></tr></thead>
-          <tbody>{intros.map((a, i) => <tr key={a.id}><td className="border border-black px-1 py-0.5 text-center">{i + 1}</td><td className="border border-black px-1 py-0.5">{a.category}</td><td className="border border-black px-1 py-0.5">{a.organization}</td><td className="border border-black px-1 py-0.5">{a.position}</td><td className="border border-black px-1 py-0.5 font-bold">{a.name}</td><td className="border border-black px-1 py-0.5 text-center font-mono">{a.seat}</td><td className="border border-black px-1 py-0.5 text-center">{PRESENT.includes(a.status) ? '○' : '×'}</td></tr>)}</tbody>
+          <tbody>{intros.map((a, i) => <tr key={a.id}><td className="border border-black px-1 py-0.5 text-center">{i + 1}</td><td className="border border-black px-1 py-0.5">{a.category}</td><td className="border border-black px-1 py-0.5">{a.organization}</td><td className="border border-black px-1 py-0.5">{a.position}</td><td className="border border-black px-1 py-0.5 font-bold">{a.name}</td><td className="border border-black px-1 py-0.5 text-center font-mono">{a.seat}</td><td className="border border-black px-1 py-0.5 text-center">{PRESENT.includes(a.status) ? '○' : a.status === '불참' ? '불참' : ''}</td></tr>)}</tbody>
         </table>
       )}
       <div className="mt-3 text-xs">
         {mode === 'speech' && <div className="font-bold mb-1">[사회자 멘트 — 참석자 기준]</div>}
         {mode === 'speech' && speakers.filter(a => PRESENT.includes(a.status)).map((a, i) => <div key={a.id} className="mb-1">{i + 1}. 다음은 {honor(a)}의 {a.speechType}{iga(a.speechType)} 있겠습니다. 큰 박수로 맞아 주시기 바랍니다.</div>)}
-        {mode === 'speech' && speakers.some(a => !PRESENT.includes(a.status)) && <div className="mt-2 font-bold">※ 미도착(멘트 제외): {speakers.filter(a => !PRESENT.includes(a.status)).map(a => `${a.name} ${a.position}(${a.speechType})`).join(', ')}</div>}
-        <div className="mt-2 text-[10px] text-slate-500">※ 참석란 ○=도착, ×=미도착·불참. 화성특례시 AI스마트전략실</div>
+        {mode === 'speech' && speakers.some(a => !PRESENT.includes(a.status)) && <div className="mt-2 font-bold">※ 도착 체크 안 됨(멘트 제외): {speakers.filter(a => !PRESENT.includes(a.status)).map(a => `${a.name} ${a.position}(${a.speechType})`).join(', ')}</div>}
+        <div className="mt-2 text-[10px] text-slate-500">※ 참석란 ○=도착. 화성특례시 AI스마트전략실</div>
       </div>
     </div>
   );
@@ -1426,23 +1426,22 @@ const buildKakaoReport = ({ stats, attendees, event, speechOrder, detail }) => {
   const d = new Date(); const wd = '일월화수목금토'[d.getDay()];
   const stamp = `${d.getMonth() + 1}.${d.getDate()}.(${wd}) ${nowHM()}`;
   const speakers = speakerList(attendees, speechOrder);
-  const absentNames = attendees.filter(a => a.status === '미도착');
-  const recent = attendees.filter(a => PRESENT.includes(a.status)).sort((a, b) => (b.arrivalTime || '').localeCompare(a.arrivalTime || '')).slice(0, 5);
+  const recent = attendees.filter(a => PRESENT.includes(a.status)).sort((a, b) => (b.arrivalTime || '').localeCompare(a.arrivalTime || ''));
   const cats = [...new Set(attendees.map(a => a.category))].map(c => { const l = attendees.filter(a => a.category === c); return `${c} ${l.filter(a => PRESENT.includes(a.status)).length}/${l.length}`; });
   const lines = [
     `[${event.name} 내빈 현황]`,
     `${stamp} 기준`,
     ``,
     `■ 참석 ${stats.present}/${stats.total}명 (${stats.rate}%)`,
-    ` - 도착 ${stats.present} · 미도착 ${stats.notArrived}${stats.absent ? ` · 불참 ${stats.absent}` : ''}`,
+    ...(stats.absent ? [` - 불참 ${stats.absent}`] : []),
     ``,
     `■ 인사말씀 ${stats.speakersPresent}/${stats.speakers}명 도착`,
-    ...speakers.map((a, i) => ` ${i + 1}) ${a.speechType} ${a.name} ${a.position} — ${PRESENT.includes(a.status) ? a.status + ' ✔' : '미도착 ⚠'}`),
+    ...speakers.map((a, i) => ` ${i + 1}) ${a.speechType} ${a.name} ${a.position} ${PRESENT.includes(a.status) ? ' — 도착 ✔' : a.status === '불참' ? ' — 불참' : ''}`),
   ];
   if (detail) {
     lines.push('', '■ 구분별 참석', ' ' + cats.join(' / '));
-    if (recent.length) lines.push('', '■ 최근 도착', ...recent.map(a => ` · ${a.name} ${a.position}(${a.organization}) ${a.arrivalTime || ''}`));
-    lines.push('', `■ 미도착 ${absentNames.length}명`, ' ' + (absentNames.map(a => `${a.name} ${a.position}`).join(', ') || '없음'));
+    if (recent.length) lines.push('', `■ 도착 ${recent.length}명`, ...recent.map(a => ` · ${a.name} ${a.position}(${a.organization}) ${a.arrivalTime || ''}`));
+    const absents = attendees.filter(a => a.status === '불참'); if (absents.length) lines.push('', `■ 불참 ${absents.length}명`, ' ' + absents.map(a => `${a.name} ${a.position}`).join(', '));
   }
   lines.push('', '※ AI스마트전략실 내빈 운영 현황');
   return lines.join('\n');
@@ -1464,7 +1463,7 @@ function KakaoReportModal({ onClose, stats, attendees, event, speechOrder, notif
           <div className="flex items-center gap-2">
             <div className="flex rounded-md border border-slate-300 overflow-hidden text-xs font-semibold">
               <button onClick={() => { setDetail(false); setTouched(false); }} className={`px-3 py-1.5 ${!detail ? 'bg-slate-900 text-white' : 'bg-white'}`}>간단</button>
-              <button onClick={() => { setDetail(true); setTouched(false); }} className={`px-3 py-1.5 ${detail ? 'bg-slate-900 text-white' : 'bg-white'}`}>상세(미도착 명단)</button>
+              <button onClick={() => { setDetail(true); setTouched(false); }} className={`px-3 py-1.5 ${detail ? 'bg-slate-900 text-white' : 'bg-white'}`}>상세(도착 명단)</button>
             </div>
             {touched && <button onClick={() => setTouched(false)} className="text-xs text-indigo-700 underline">최신 현황으로 다시 작성</button>}
           </div>
