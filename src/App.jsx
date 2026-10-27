@@ -7,7 +7,7 @@ import { Users, Crown, MapPin, Clock, BarChart3, Mic2, FileText, Bell, X, Lock, 
 // =====================================================================
 
 const STORE_KEY = 'mars-vip-platform-v2';
-const APP_VERSION = '3.8.0';
+const APP_VERSION = '3.8.1';
 
 // ---------- 초기 자료 ----------
 const DEFAULT_EVENT = {
@@ -590,18 +590,6 @@ function BoardView({ attendees, stats, program, isAdmin, setStatus, toggleSpeech
           </div>
         </div>
       )}
-
-      {/* 식순 진행 */}
-      <div className="card px-3 py-2">
-        <div className="flex items-center gap-2 mb-1.5"><Clock className="w-3.5 h-3.5 text-slate-500" /><span className="text-xs font-bold">식순 진행</span><span className="ml-auto text-[11px] font-mono text-slate-500">현재 {clock}</span></div>
-        <div className="flex gap-1 overflow-x-auto pb-1">
-          {program.map((p, i) => (
-            <div key={p.id} className={`shrink-0 rounded px-2 py-1 border text-[11px] ${i === current ? 'bg-slate-900 text-white border-slate-900' : i < current ? 'bg-slate-100 text-slate-400 border-slate-200 line-through' : 'bg-white text-slate-700 border-slate-200'}`}>
-              <span className="font-mono mr-1">{p.time}</span>{p.title}
-            </div>
-          ))}
-        </div>
-      </div>
 
       {/* 내빈 목록 */}
       <div className="card p-2 sm:p-3">
