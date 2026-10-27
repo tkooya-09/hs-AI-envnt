@@ -7,7 +7,7 @@ import { Users, Crown, MapPin, Clock, BarChart3, Mic2, FileText, Bell, X, Lock, 
 // =====================================================================
 
 const STORE_KEY = 'mars-vip-platform-v2';
-const APP_VERSION = '3.5.1';
+const APP_VERSION = '3.6.0';
 
 // ---------- 초기 자료 ----------
 const DEFAULT_EVENT = {
@@ -135,22 +135,22 @@ const DEFAULT_STATE = () => {
 const loadState = () => {
   try {
     const s = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
-    if (s && s.attendees) return { ...DEFAULT_STATE(), ...s };
+    if (s && s.attendees) return normState({ ...DEFAULT_STATE(), ...s });
   } catch {}
   return DEFAULT_STATE();
 };
 
 // ---------- 상수 ----------
-const STATUSES = ['미도착', '도착', '착석', '퇴장', '불참'];
+const STATUSES = ['미도착', '도착', '퇴장', '불참'];
 const PRESENT = ['도착', '착석'];
 const STATUS_STYLE = {
   '미도착': 'bg-slate-100 text-slate-600 border-slate-300',
-  '도착': 'bg-amber-50 text-amber-700 border-amber-300',
+  '도착': 'bg-emerald-50 text-emerald-700 border-emerald-300',
   '착석': 'bg-emerald-50 text-emerald-700 border-emerald-300',
   '퇴장': 'bg-slate-50 text-slate-500 border-slate-300',
   '불참': 'bg-rose-50 text-rose-700 border-rose-300',
 };
-const STATUS_DOT = { '미도착': 'bg-slate-400', '도착': 'bg-amber-500', '착석': 'bg-emerald-500', '퇴장': 'bg-slate-300', '불참': 'bg-rose-500' };
+const STATUS_DOT = { '미도착': 'bg-slate-400', '도착': 'bg-emerald-500', '착석': 'bg-emerald-500', '퇴장': 'bg-slate-300', '불참': 'bg-rose-500' };
 const GRADES = ['VVIP', 'VIP', '일반', '관계자'];
 const GRADE_STYLES = {
   'VVIP': { bg: 'bg-rose-600', light: 'bg-rose-50', border: 'border-rose-200' },
@@ -161,6 +161,8 @@ const GRADE_STYLES = {
 // ---------- 공유 저장소(Supabase) ----------
 const SYNC = { url: 'https://sbnjodqxvwgqgdnzcziz.supabase.co', key: 'sb_publishable_vDOafQ_YqlElOwBxLeHHvA_x1mgHGLw', table: 'event_state', id: 'mars-2026' };
 const SYNC_ON = SYNC.url.startsWith('http');
+const normAtt = (a) => (a.status === '착석' ? { ...a, status: '도착' } : a);
+const normState = (st) => (st && st.attendees && st.attendees.some(a => a.status === '착석') ? { ...st, attendees: st.attendees.map(normAtt) } : st);
 const mergeState = (local, remote) => {
   if (!remote) return local;
   if (!local) return remote;
@@ -172,7 +174,7 @@ const mergeState = (local, remote) => {
     if (!cur || (a.u || 0) >= (cur.u || 0)) byId.set(a.id, a);
   });
   const meta = (local.metaAt || 0) >= (remote.metaAt || 0) ? local : remote;
-  const attendees = [...byId.values()].sort((a, b) => a.id - b.id);
+  const attendees = [...byId.values()].map(normAtt).sort((a, b) => a.id - b.id);
   return { ...meta, attendees, tombstones: tomb, nextId: Math.max(local.nextId || 0, remote.nextId || 0, ...attendees.map(a => a.id + 1)),
     speechOrder: (meta.speechOrder || []).filter(id => byId.has(id)), introOrder: [...(meta.introOrder || []).filter(id => byId.has(id)), ...attendees.map(a => a.id).filter(id => !(meta.introOrder || []).includes(id))] };
 };
@@ -336,7 +338,6 @@ export default function App() {
         if (a.id !== id) return a;
         const c = { status };
         if (status === '도착') { c.arrivalTime = a.arrivalTime || t; c.seatedTime = null; }
-        if (status === '착석') { c.arrivalTime = a.arrivalTime || t; c.seatedTime = t; }
         if (status === '미도착') { c.arrivalTime = null; c.seatedTime = null; }
         return { ...a, ...c, u: now() };
       }),
@@ -505,8 +506,7 @@ function StatusButtons({ a, setStatus, compact }) {
   );
   return (
     <div className="flex flex-wrap gap-1">
-      {btn('도착', 'bg-amber-500 text-white border-amber-500 hover:bg-amber-600')}
-      {btn('착석', 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700')}
+      {btn('도착', 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700')}
       {btn('퇴장', 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50')}
       {btn('불참', 'bg-white text-rose-600 border-rose-300 hover:bg-rose-50')}
       <button onClick={() => setStatus(a.id, '미도착')} title="초기화" className={`${compact ? 'px-1.5 py-1' : 'px-2 py-1.5'} rounded border border-slate-200 text-slate-400 hover:bg-slate-50`}><RotateCcw className="w-3 h-3" /></button>
@@ -567,13 +567,12 @@ function BoardView({ attendees, stats, program, isAdmin, setStatus, toggleSpeech
   return (
     <div className="space-y-3">
       {/* 핵심 지표 */}
-      <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
-        <KPI label="초청 내빈" value={stats.total} />
-        <KPI label="참석(도착+착석)" value={stats.present} sub={`${stats.rate}%`} tone="emerald" />
-        <KPI label="착석 완료" value={stats.seated} tone="blue" />
+      <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
+        <KPI label="초청" value={stats.total} />
+        <KPI label="도착" value={stats.present} sub={`${stats.rate}%`} tone="emerald" />
         <KPI label="미도착" value={stats.notArrived} tone="amber" />
-        <KPI label="불참·퇴장" value={stats.absent + stats.left} tone="rose" />
-        <KPI label="인사말씀 참석" value={`${stats.speakersPresent}/${stats.speakers}`} tone="violet" />
+        <KPI label="불참" value={stats.absent + stats.left} tone="rose" />
+        <KPI label="말씀" value={`${stats.speakersPresent}/${stats.speakers}`} tone="violet" />
       </div>
 
       {/* 도착 알림 (소형 칩) */}
@@ -583,7 +582,7 @@ function BoardView({ attendees, stats, program, isAdmin, setStatus, toggleSpeech
             <div className="flex items-center gap-1.5 mr-1 shrink-0"><Bell className="w-3.5 h-3.5 animate-pulse" /><span className="text-xs font-bold">도착 내빈</span><span className="text-[10px] bg-white/25 px-1.5 py-0.5 rounded">{present.length}/{stats.total}</span></div>
             {present.map(a => (
               <span key={a.id} title={`${honor(a)} · ${a.status}`} className="inline-flex items-center gap-1 bg-white/15 border border-white/20 rounded px-1.5 py-0.5 text-[11px] leading-4 whitespace-nowrap">
-                <span className={`w-1.5 h-1.5 rounded-full ${a.status === '착석' ? 'bg-emerald-300' : 'bg-amber-200'}`} />
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-300" />
                 <span className="font-semibold">{a.name}</span><span className="text-white/75">{a.position}</span>
                 {a.speech && <Mic2 className="w-2.5 h-2.5 text-amber-200" />}
                 <span className="text-white/60 font-mono">{a.seatedTime || a.arrivalTime}</span>
@@ -629,13 +628,13 @@ function BoardView({ attendees, stats, program, isAdmin, setStatus, toggleSpeech
             <div key={cat} className="mb-2">
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-[11px] font-bold text-white bg-slate-700 px-1.5 py-0 rounded">{cat}</span>
-                <span className="text-[11px] text-slate-500">참석 <b className={pc ? 'text-emerald-600' : ''}>{pc}</b>/{list.length}</span>
+                <span className="text-[11px] text-slate-500">도착 <b className={pc ? 'text-emerald-600' : ''}>{pc}</b>/{list.length}</span>
                 <span className="flex-1 border-t border-slate-200" />
               </div>
               <div className={`grid gap-1 ${big ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3'}`}>
                 {list.map(a => {
-                  const tone = a.status === '착석' ? 'border-l-emerald-500 bg-emerald-50' : a.status === '도착' ? 'border-l-amber-500 bg-amber-50' : a.status === '불참' ? 'border-l-rose-400 bg-rose-50/60 opacity-75' : a.status === '퇴장' ? 'border-l-slate-300 bg-slate-50 opacity-70' : 'border-l-slate-300 bg-white';
-                  const badge = a.status === '착석' ? 'bg-emerald-600 text-white' : a.status === '도착' ? 'bg-amber-500 text-white' : a.status === '불참' ? 'bg-rose-500 text-white' : a.status === '퇴장' ? 'bg-slate-400 text-white' : 'bg-slate-200 text-slate-600';
+                  const tone = PRESENT.includes(a.status) ? 'border-l-emerald-500 bg-emerald-50' : a.status === '불참' ? 'border-l-rose-400 bg-rose-50/60 opacity-75' : a.status === '퇴장' ? 'border-l-slate-300 bg-slate-50 opacity-70' : 'border-l-slate-300 bg-white';
+                  const badge = PRESENT.includes(a.status) ? 'bg-emerald-600 text-white' : a.status === '불참' ? 'bg-rose-500 text-white' : a.status === '퇴장' ? 'bg-slate-400 text-white' : 'bg-slate-200 text-slate-600';
                   return (
                     <div key={a.id} onClick={() => isAdmin && setSheet(a.id)} className={`rounded-md border border-slate-200 border-l-4 pl-2 pr-2 ${big ? 'py-1.5' : 'py-1'} ${tone} ${isAdmin ? 'cursor-pointer hover:border-indigo-300 active:bg-slate-100' : ''}`}>
                       <div className="flex items-center gap-1.5 min-w-0">
@@ -664,11 +663,11 @@ function BoardView({ attendees, stats, program, isAdmin, setStatus, toggleSpeech
 }
 
 // =====================================================================
-// 체크 창 (카드 누르면) — 도착 · 착석 · 내빈소개 · 인사말씀
+// 체크 창 (카드 누르면) — 도착 · 내빈소개 · 인사말씀
 // =====================================================================
 function ActionSheet({ a, onClose, setStatus, toggleSpeech, toggleIntro, updateAttendee }) {
   const Big = ({ on, cls, onClick, children }) => (
-    <button onClick={onClick} className={`rounded-xl border-2 py-4 text-base font-bold flex flex-col items-center gap-1 transition ${on ? cls : 'bg-white border-slate-200 text-slate-500 hover:border-slate-400'}`}>{children}</button>
+    <button onClick={onClick} className={`w-full rounded-xl border-2 py-4 text-base font-bold flex flex-col items-center gap-1 transition ${on ? cls : 'bg-white border-slate-200 text-slate-500 hover:border-slate-400'}`}>{children}</button>
   );
   const present = PRESENT.includes(a.status);
   return (
@@ -682,12 +681,9 @@ function ActionSheet({ a, onClose, setStatus, toggleSpeech, toggleIntro, updateA
           <div className="ml-auto flex items-center gap-2 shrink-0"><StatusChip status={a.status} /><button onClick={onClose} className="text-slate-400"><X className="w-5 h-5" /></button></div>
         </div>
         <div className="grid grid-cols-2 gap-2">
-          <Big on={a.status === '도착'} cls="bg-amber-500 border-amber-500 text-white" onClick={() => setStatus(a.id, a.status === '도착' ? '미도착' : '도착')}>
-            <span className="text-2xl">🚶</span>도착{a.arrivalTime && <span className="text-[11px] font-mono opacity-80">{a.arrivalTime}</span>}
-          </Big>
-          <Big on={a.status === '착석'} cls="bg-emerald-600 border-emerald-600 text-white" onClick={() => setStatus(a.id, a.status === '착석' ? '도착' : '착석')}>
-            <span className="text-2xl">💺</span>착석{a.seatedTime && <span className="text-[11px] font-mono opacity-80">{a.seatedTime}</span>}
-          </Big>
+          <div className="col-span-2"><Big on={PRESENT.includes(a.status)} cls="bg-emerald-600 border-emerald-600 text-white" onClick={() => setStatus(a.id, PRESENT.includes(a.status) ? '미도착' : '도착')}>
+            <span className="text-2xl">✅</span>{PRESENT.includes(a.status) ? '도착 완료 (누르면 취소)' : '도착'}{a.arrivalTime && <span className="text-[11px] font-mono opacity-80">{a.arrivalTime}</span>}
+          </Big></div>
           <Big on={a.intro} cls="bg-slate-800 border-slate-800 text-white" onClick={() => toggleIntro(a.id, !a.intro)}>
             <span className="text-2xl">📣</span>내빈 소개 {a.intro ? '○' : '×'}
           </Big>
@@ -719,7 +715,7 @@ function KPI({ label, value, sub, tone = 'slate' }) {
   return (
     <div className="card px-3 py-2 relative overflow-hidden">
       <span className={`absolute left-0 top-0 bottom-0 w-1 ${bars[tone]}`} />
-      <div className="text-[10px] text-slate-500 pl-1">{label}</div>
+      <div className="text-[10px] text-slate-500 pl-1 whitespace-nowrap">{label}</div>
       <div className={`text-xl font-bold leading-tight pl-1 ${tones[tone]}`}>{value}{sub && <span className="text-xs font-medium text-slate-400 ml-1">{sub}</span>}</div>
     </div>
   );
@@ -752,8 +748,8 @@ function OrderList({ ids, attendees, setOrder, editable, renderExtra, onRemove, 
   const onUp = () => { if (dragIdx != null && overIdx != null) move(dragIdx, overIdx); setDragIdx(null); setOverIdx(null); };
 
   if (!list.length) return <div className="text-xs text-slate-400 text-center py-6 border border-dashed rounded">대상이 없습니다{presentOnly && ' (참석 내빈만 표시 중)'}</div>;
-  const BAR = { '착석': 'bg-emerald-500', '도착': 'bg-amber-400', '미도착': 'bg-slate-300', '불참': 'bg-rose-400', '퇴장': 'bg-slate-300' };
-  const TXT = { '착석': 'text-emerald-700', '도착': 'text-amber-700', '미도착': 'text-slate-400', '불참': 'text-rose-600', '퇴장': 'text-slate-400' };
+  const BAR = { '착석': 'bg-emerald-500', '도착': 'bg-emerald-500', '미도착': 'bg-slate-300', '불참': 'bg-rose-400', '퇴장': 'bg-slate-300' };
+  const TXT = { '착석': 'text-emerald-700', '도착': 'text-emerald-700', '미도착': 'text-slate-400', '불참': 'text-rose-600', '퇴장': 'text-slate-400' };
   return (
     <div onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
       {editable && picked != null && <div className="sticky top-[92px] z-20 mb-1 text-xs rounded-md px-2 py-1.5 bg-blue-600 text-white font-semibold shadow">{picked + 1}번 {list[picked]?.name} 선택 — 들어갈 자리를 누르세요 <button className="underline ml-1" onClick={() => setPicked(null)}>취소</button></div>}
@@ -873,7 +869,7 @@ function SpeechView({ attendees, speechOrder, introOrder, setSpeechOrder, setInt
 // =====================================================================
 const SEAT_TONE = {
   '착석': 'bg-emerald-600 text-white border-emerald-700',
-  '도착': 'bg-amber-400 text-amber-950 border-amber-500',
+  '도착': 'bg-emerald-600 text-white border-emerald-700',
   '미도착': 'bg-white text-slate-700 border-slate-300',
   '불참': 'bg-rose-50 text-rose-300 border-rose-200 line-through',
   '퇴장': 'bg-slate-200 text-slate-500 border-slate-300',
@@ -978,12 +974,12 @@ function SeatView({ attendees, layout, setLayout, isAdmin, setStatus, toggleSpee
               <button onClick={() => setMode('move')} className={`px-3 py-1.5 flex items-center gap-1 ${mode === 'move' ? 'bg-indigo-600 text-white' : 'bg-white text-indigo-700'}`}><ArrowUpDown className="w-3 h-3" />자리 바꾸기</button>
             </div>
             <button onClick={addZone} className="btn btn-outline"><Plus className="w-3 h-3" />구역 추가</button>
-            <span className="text-[11px] text-slate-500">{mode === 'check' ? '좌석을 누르면 도착·착석 체크 창이 뜹니다.' : '옮길 사람을 누르고, 들어갈 자리를 누르세요. 노트북은 끌어 놓아도 됩니다.'}</span>
+            <span className="text-[11px] text-slate-500">{mode === 'check' ? '좌석을 누르면 도착 체크 창이 뜹니다.' : '옮길 사람을 누르고, 들어갈 자리를 누르세요. 노트북은 끌어 놓아도 됩니다.'}</span>
           </div>
         )}
         {/* 범례 */}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-600">
-          {['착석', '도착', '미도착', '불참'].map(st => (
+          {['도착', '미도착', '불참'].map(st => (
             <span key={st} className="inline-flex items-center gap-1"><span className={`w-3.5 h-3.5 rounded border ${SEAT_TONE[st]}`} />{st} <b className="tabular-nums">{count(st)}</b></span>
           ))}
           <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-violet-600" />인사말씀</span>
@@ -1006,14 +1002,14 @@ function SeatView({ attendees, layout, setLayout, isAdmin, setStatus, toggleSpee
         const cols = colsOf(z);
         const rows = []; for (let i = 0; i < list.length; i += cols) rows.push(list.slice(i, i + cols));
         const grade = list[0]?.grade || 'VVIP'; const gs = GRADE_STYLES[grade] || GRADE_STYLES.VVIP;
-        const seated = list.filter(a => a.status === '착석').length; const present = list.filter(a => PRESENT.includes(a.status)).length;
+        const present = list.filter(a => PRESENT.includes(a.status)).length;
         return (
           <div key={z} className="card overflow-hidden">
             <div className={`flex flex-wrap items-center gap-2 px-3 py-2 border-b ${gs.light} ${gs.border}`}>
               <span className={`px-2 py-0.5 rounded text-[11px] font-bold text-white ${gs.bg}`}>{grade}</span>
               <span className="text-sm font-bold">{z} 구역</span>
-              <span className="text-xs text-slate-600 tabular-nums">착석 <b className="text-emerald-700">{seated}</b> · 참석 {present} / {list.length}석</span>
-              <div className="flex-1 h-1.5 bg-white rounded-full overflow-hidden min-w-[60px] max-w-[160px]"><div className="h-full bg-emerald-500" style={{ width: `${list.length ? seated / list.length * 100 : 0}%` }} /></div>
+              <span className="text-xs text-slate-600 tabular-nums">도착 <b className="text-emerald-700">{present}</b> / {list.length}석</span>
+              <div className="flex-1 h-1.5 bg-white rounded-full overflow-hidden min-w-[60px] max-w-[160px]"><div className="h-full bg-emerald-500" style={{ width: `${list.length ? present / list.length * 100 : 0}%` }} /></div>
               {isAdmin && (
                 <div className="ml-auto flex items-center gap-1">
                   <select value={cols} onChange={e => setCols(z, Number(e.target.value))} className="text-[11px] border border-slate-300 rounded px-1 py-0.5 bg-white" title="한 열의 좌석 수">{[4, 5, 6, 7, 8, 10, 12, 15].map(c => <option key={c} value={c}>한 열 {c}석</option>)}</select>
@@ -1102,7 +1098,7 @@ function ManageView({ applyProtocol, onQuickAdd, attendees, updateAttendee, addA
   const [more, setMore] = useState(false);
   const [sort, setSort] = useState(() => { try { return localStorage.getItem('mars-manage-sort') || 'rank'; } catch { return 'rank'; } });
   useEffect(() => { try { localStorage.setItem('mars-manage-sort', sort); } catch {} }, [sort]);
-  const ST_ORDER = { '미도착': 0, '도착': 1, '착석': 2, '불참': 3, '퇴장': 4 };
+  const ST_ORDER = { '미도착': 0, '도착': 1, '착석': 1, '불참': 3, '퇴장': 4 };
   const sorter = { rank: byRank, reg: (x, y) => x.id - y.id, seat: (x, y) => (x.seat || '~').localeCompare(y.seat || '~'), name: (x, y) => x.name.localeCompare(y.name, 'ko'), status: (x, y) => ST_ORDER[x.status] - ST_ORDER[y.status] || byRank(x, y) }[sort];
   const shown = attendees.filter(a => !q.trim() || `${a.name}${a.organization}${a.position}${a.category}${a.seat}`.includes(q.trim())).sort(sorter);
   const doProtocol = async () => { if (await askUser('의전 순위대로 맞춥니다.\n· 내빈 소개 순서를 의전순으로\n· 인사말씀 순서를 의전순으로\n· 좌석을 구역별로 1열 가운데부터(가운데 → 좌우 교대)\n\n지금 순서와 좌석이 바뀝니다. 계속할까요?')) { applyProtocol(); notify('의전순으로 맞췄습니다'); } };
@@ -1120,13 +1116,13 @@ function ManageView({ applyProtocol, onQuickAdd, attendees, updateAttendee, addA
     setPaste(''); setShowPaste(false); notify(`${n}명을 추가했습니다`);
   };
   const exportCsv = () => {
-    const head = ['의전', '구분', '소속', '직위', '성명', '등급', '좌석', '상태', '도착', '착석', '인사말씀', '소개', '비고'];
-    const rows = [...attendees].sort(byRank).map((a, i) => [rankOf(a) === 999 ? '' : rankOf(a), a.category, a.organization, a.position, a.name, a.grade, a.seat, a.status, a.arrivalTime || '', a.seatedTime || '', a.speech ? a.speechType : '', a.intro ? 'Y' : '', a.note]);
+    const head = ['의전', '구분', '소속', '직위', '성명', '등급', '좌석', '상태', '도착시각', '인사말씀', '소개', '비고'];
+    const rows = [...attendees].sort(byRank).map((a, i) => [rankOf(a) === 999 ? '' : rankOf(a), a.category, a.organization, a.position, a.name, a.grade, a.seat, a.status, a.arrivalTime || '', a.speech ? a.speechType : '', a.intro ? 'Y' : '', a.note]);
     const csv = '﻿' + [head, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
     const a = document.createElement('a'); a.href = url; a.download = `내빈현황_${new Date().toISOString().slice(0, 10)}.csv`; a.click();
   };
-  const resetStatus = async () => { if (await askUser('모든 내빈의 도착·착석 상태를 미도착으로 되돌립니다. 계속할까요?')) patch(s => ({ attendees: s.attendees.map(a => ({ ...a, status: '미도착', arrivalTime: null, seatedTime: null })) })); };
+  const resetStatus = async () => { if (await askUser('모든 내빈의 도착 상태를 미도착으로 되돌립니다. 계속할까요?')) patch(s => ({ attendees: s.attendees.map(a => ({ ...a, status: '미도착', arrivalTime: null, seatedTime: null })) })); };
   const reseat = async () => { if (await askUser('현재 목록 순서대로 좌석번호(A-01~)를 다시 매깁니다. 계속할까요?')) patch(s => ({ attendees: s.attendees.map((a, i) => ({ ...a, seat: `A-${String(i + 1).padStart(2, '0')}` })) })); };
 
   return (
@@ -1162,7 +1158,7 @@ function ManageView({ applyProtocol, onQuickAdd, attendees, updateAttendee, addA
       {/* 핸드폰: 2줄 카드 (이름 줄 + 단추 줄) */}
       <div className="md:hidden space-y-1">
         {shown.map(a => (
-          <div key={a.id} className={`rounded-md border border-l-4 pl-2 pr-1.5 py-1 ${a.status === '착석' ? 'border-l-emerald-500 bg-emerald-50/50' : a.status === '도착' ? 'border-l-amber-500 bg-amber-50/50' : a.status === '불참' ? 'border-l-rose-400' : 'border-l-slate-300'} border-slate-200`}>
+          <div key={a.id} className={`rounded-md border border-l-4 pl-2 pr-1.5 py-1 ${PRESENT.includes(a.status) ? 'border-l-emerald-500 bg-emerald-50/50' : a.status === '불참' ? 'border-l-rose-400' : 'border-l-slate-300'} border-slate-200`}>
             <div className="flex items-center gap-1.5 min-w-0">
               <span className="shrink-0 text-[11px] font-bold text-indigo-600 tabular-nums w-5">{rankOf(a) === 999 ? '-' : rankOf(a)}</span>
               <span className="shrink-0 text-[16px] font-bold leading-tight">{a.name}</span>
@@ -1172,7 +1168,7 @@ function ManageView({ applyProtocol, onQuickAdd, attendees, updateAttendee, addA
               <button onClick={() => setEdit(a.id)} className="shrink-0 p-1 text-slate-400"><Pencil className="w-3.5 h-3.5" /></button>
             </div>
             <div className="flex items-center gap-1 mt-1">
-              {[['도착', 'bg-amber-500 border-amber-500 text-white'], ['착석', 'bg-emerald-600 border-emerald-600 text-white'], ['불참', 'bg-white border-rose-300 text-rose-600'], ['미도착', 'bg-white border-slate-300 text-slate-500']].map(([st, cls]) => (
+              {[['도착', 'bg-emerald-600 border-emerald-600 text-white'], ['불참', 'bg-white border-rose-300 text-rose-600'], ['미도착', 'bg-white border-slate-300 text-slate-500']].map(([st, cls]) => (
                 <button key={st} onClick={() => setStatus(a.id, st)} className={`flex-1 rounded border py-1 text-[12px] font-bold ${a.status === st ? 'ring-2 ring-slate-800' : ''} ${cls}`}>{st === '미도착' ? '초기화' : st}</button>
               ))}
               <button onClick={() => toggleIntro(a.id, !a.intro)} className={`shrink-0 px-1.5 py-1 rounded border text-[11px] font-bold ${a.intro ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-400 border-slate-300'}`}>소개{a.intro ? '○' : '×'}</button>
@@ -1299,7 +1295,7 @@ function ReportView({ stats, attendees, event, speechOrder, notify }) {
   const speakers = speakerList(attendees, speechOrder);
   const text = `▣ ${event.name} 내빈 참석 결과 (${new Date().toLocaleString('ko-KR')} 기준)
  · 초청 내빈 : ${stats.total}명
- · 참석 : ${stats.present}명 (${stats.rate}%) — 착석 ${stats.seated}, 도착 ${stats.arrived}
+ · 참석 : ${stats.present}명 (${stats.rate}%) 
  · 미도착 ${stats.notArrived}명 / 불참 ${stats.absent}명 / 퇴장 ${stats.left}명
 
 ▣ 인사말씀 (${speakers.length}명)
@@ -1335,7 +1331,7 @@ function QuickAddModal({ onClose, attendees, onAdd }) {
   const nextSeat = (z) => { const n = Math.max(0, ...attendees.filter(a => a.seat.startsWith(z + '-')).map(a => Number(a.seat.split('-')[1]) || 0)); return `${z}-${String(n + 1).padStart(2, '0')}`; };
   const [f, setF] = useState({ rank: Math.max(0, ...attendees.map(a => rankOf(a)).filter(r => r < 999)) + 1, name: '', position: '', organization: '', category: '긴급 추가', grade: 'VVIP', zone: zones[0] || 'A', status: '도착', speech: false, speechType: '축사', note: '현장 추가' });
   const inp = 'w-full border border-slate-300 rounded-md px-2 py-1.5 text-sm';
-  const submit = (e) => { e.preventDefault(); if (!f.name.trim()) return; const { zone, ...rest } = f; onAdd({ ...rest, seat: nextSeat(zone), arrivalTime: f.status === '미도착' ? null : nowHM(), seatedTime: f.status === '착석' ? nowHM() : null, intro: true }); };
+  const submit = (e) => { e.preventDefault(); if (!f.name.trim()) return; const { zone, ...rest } = f; onAdd({ ...rest, seat: nextSeat(zone), arrivalTime: f.status === '미도착' ? null : nowHM(), seatedTime: null, intro: true }); };
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <form onSubmit={submit} onClick={e => e.stopPropagation()} className="bg-white rounded-xl p-5 w-full max-w-md shadow-2xl">
@@ -1390,7 +1386,7 @@ function PrintSheet({ event, attendees, speechOrder, introOrder, stats }) {
         {mode === 'speech' && <div className="font-bold mb-1">[사회자 멘트 — 참석자 기준]</div>}
         {mode === 'speech' && speakers.filter(a => PRESENT.includes(a.status)).map((a, i) => <div key={a.id} className="mb-1">{i + 1}. 다음은 {honor(a)}의 {a.speechType}{iga(a.speechType)} 있겠습니다. 큰 박수로 맞아 주시기 바랍니다.</div>)}
         {mode === 'speech' && speakers.some(a => !PRESENT.includes(a.status)) && <div className="mt-2 font-bold">※ 미도착(멘트 제외): {speakers.filter(a => !PRESENT.includes(a.status)).map(a => `${a.name} ${a.position}(${a.speechType})`).join(', ')}</div>}
-        <div className="mt-2 text-[10px] text-slate-500">※ 참석란 ○=도착·착석, ×=미도착·불참. 화성특례시 AI스마트전략실</div>
+        <div className="mt-2 text-[10px] text-slate-500">※ 참석란 ○=도착, ×=미도착·불참. 화성특례시 AI스마트전략실</div>
       </div>
     </div>
   );
@@ -1438,7 +1434,7 @@ const buildKakaoReport = ({ stats, attendees, event, speechOrder, detail }) => {
     `${stamp} 기준`,
     ``,
     `■ 참석 ${stats.present}/${stats.total}명 (${stats.rate}%)`,
-    ` - 착석 ${stats.seated} · 도착 ${stats.arrived} · 미도착 ${stats.notArrived}${stats.absent ? ` · 불참 ${stats.absent}` : ''}`,
+    ` - 도착 ${stats.present} · 미도착 ${stats.notArrived}${stats.absent ? ` · 불참 ${stats.absent}` : ''}`,
     ``,
     `■ 인사말씀 ${stats.speakersPresent}/${stats.speakers}명 도착`,
     ...speakers.map((a, i) => ` ${i + 1}) ${a.speechType} ${a.name} ${a.position} — ${PRESENT.includes(a.status) ? a.status + ' ✔' : '미도착 ⚠'}`),
