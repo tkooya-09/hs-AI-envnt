@@ -9,7 +9,7 @@ import { photoOf, PHOTO_COUNT } from './photos.js';
 // =====================================================================
 
 const STORE_KEY = 'mars-vip-platform-v2';
-const APP_VERSION = '4.3.1';
+const APP_VERSION = '4.3.2';
 
 // ---------- 초기 자료 ----------
 const DEFAULT_EVENT = {
@@ -115,10 +115,13 @@ const SYNC = { url: 'https://sbnjodqxvwgqgdnzcziz.supabase.co', key: 'sb_publish
 const SYNC_ON = SYNC.url.startsWith('http');
 const normAtt = (a) => (a.status === '착석' || a.status === '퇴장' ? { ...a, status: '도착' } : a);
 const normState = (st) => (st && st.attendees && st.attendees.some(a => a.status === '착석' || a.status === '퇴장') ? { ...st, attendees: st.attendees.map(normAtt) } : st);
+// 서버(jsonb)는 키 순서를 바꿔 돌려주므로, 비교는 키를 정렬한 문자열로
+const canon = (v) => JSON.stringify(v, (k, val) => (val && typeof val === 'object' && !Array.isArray(val)) ? Object.fromEntries(Object.keys(val).sort().map(x => [x, val[x]])) : val);
 const mergeState = (local, remote) => {
   if (!remote) return local;
   if (!local) return remote;
-  const tomb = { ...(remote.tombstones || {}), ...(local.tombstones || {}) };
+  const tomb = { ...(remote.tombstones || {}) };
+  Object.entries(local.tombstones || {}).forEach(([k, v]) => { if (!(tomb[k] >= v)) tomb[k] = v; });
   const byId = new Map();
   const rv = Math.max(local.rosterVer || 0, remote.rosterVer || 0);
   const pool = [...((remote.rosterVer || 0) === rv ? remote.attendees || [] : []), ...((local.rosterVer || 0) === rv ? local.attendees || [] : [])];
@@ -201,7 +204,7 @@ const Avatar = ({ a, size = 28, cls = '' }) => { const src = photoOf(a); if (!sr
 // =====================================================================
 export default function App() {
   const [state, setState] = useState(loadState);
-  const [isAdmin, setIsAdmin] = useState(() => { const flag = sessionStorage.getItem('mars-admin') === '1' || localStorage.getItem('mars-admin-keep') === '1'; return SYNC_ON ? flag && !!pinStore.get() : flag; });
+  const [isAdmin, setIsAdmin] = useState(() => { try { const flag = sessionStorage.getItem('mars-admin') === '1' || localStorage.getItem('mars-admin-keep') === '1'; return SYNC_ON ? flag && !!pinStore.get() : flag; } catch { return false; } });
   const [view, setView] = useState('board');
   const [loginOpen, setLoginOpen] = useState(false);
   const [gateOpen, setGateOpen] = useState(() => { try { return !(sessionStorage.getItem('mars-admin') === '1' || localStorage.getItem('mars-admin-keep') === '1' || localStorage.getItem('mars-role')); } catch { return true; } });
@@ -237,9 +240,9 @@ export default function App() {
         if (row.data.appVersion && verNum(row.data.appVersion) > verNum(APP_VERSION)) setNewVer(row.data.appVersion);
         const remote = stripLocal(row.data);
         const merged = stripLocal(mergeState(stripLocal(stateRef.current), remote));
-        const mergedStr = JSON.stringify(merged);
-        if (JSON.stringify(stripLocal(stateRef.current)) !== mergedStr) setState(s => ({ ...merged, seatLayout: s.seatLayout, adminPin: s.adminPin }));
-        remoteRef.current = JSON.stringify(remote);
+        const mergedStr = canon(merged);
+        if (canon(stripLocal(stateRef.current)) !== mergedStr) setState(s => ({ ...merged, seatLayout: s.seatLayout, adminPin: s.adminPin }));
+        remoteRef.current = canon(remote);
         if (isAdminRef.current && mergedStr !== remoteRef.current) { clearTimeout(pushTimer.current); pushTimer.current = setTimeout(push, 300); } // 서로 엇갈린 수정 복구
       }
       setSync(x => ({ ...x, status: '연결됨', at: nowHM(), err: null }));
@@ -256,9 +259,9 @@ export default function App() {
       if (row?.data?.appVersion && verNum(row.data.appVersion) > verNum(APP_VERSION)) { setNewVer(row.data.appVersion); return; } // 옛 화면은 새 자료를 덮어쓰지 않음
       const merged = stripLocal(mergeState(stripLocal(stateRef.current), remote));
       merged.appVersion = APP_VERSION;
-      const mergedStr = JSON.stringify(merged);
-      if (JSON.stringify(stripLocal(stateRef.current)) !== mergedStr) setState(s => ({ ...merged, seatLayout: s.seatLayout, adminPin: s.adminPin }));
-      if (JSON.stringify(row?.data || null) !== mergedStr) { lastUpRef.current = await syncPush(merged, pin); remoteRef.current = mergedStr; }
+      const mergedStr = canon(merged);
+      if (canon(stripLocal(stateRef.current)) !== mergedStr) setState(s => ({ ...merged, seatLayout: s.seatLayout, adminPin: s.adminPin }));
+      if (canon(row?.data ? stripLocal(row.data) : null) !== mergedStr) { lastUpRef.current = await syncPush(merged, pin); remoteRef.current = mergedStr; }
       pendingRef.current = false;
       setSync(x => ({ ...x, status: '연결됨', at: nowHM(), err: null }));
     } catch (e) {
@@ -277,7 +280,7 @@ export default function App() {
   }, []);
   useEffect(() => {
     if (!SYNC_ON || !isAdmin) return;
-    if (JSON.stringify(stripLocal(state)) === remoteRef.current) return;
+    if (canon(stripLocal(state)) === remoteRef.current) return;
     clearTimeout(pushTimer.current); pushTimer.current = setTimeout(push, 600);
     return () => clearTimeout(pushTimer.current);
   }, [state, isAdmin]);
@@ -285,7 +288,7 @@ export default function App() {
   useEffect(() => { try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch {} }, [state]);
   useEffect(() => { if (toast) { const t = setTimeout(() => setToast(null), 2200); return () => clearTimeout(t); } }, [toast]);
 
-  const { attendees, event, program, speechOrder, introOrder } = state;
+  const { attendees = [], event = {}, program = [], speechOrder = [], introOrder = [] } = state;
   const patch = (fn) => setState(s => ({ ...s, ...fn(s) }));
   const notify = (msg) => setToast(msg);
 
@@ -314,7 +317,7 @@ export default function App() {
     introOrder: on ? (s.introOrder.includes(id) ? s.introOrder : [...s.introOrder, id]) : s.introOrder.filter(x => x !== id),
   }));
   const addAttendee = (data) => patchMeta(s => {
-    const id = Date.now();
+    const id = Math.max(Date.now(), ...s.attendees.filter(a => a.id >= 1e12).map(a => a.id + 1));
     const a = { id, rid: null, category: '현장 추가', organization: '', position: '', name: '', note: '현장 추가', grade: '기타', rsvp: '', seat: '', status: '도착', arrivalTime: nowHM(), seatedTime: null, intro: true, speech: false, speechType: '축사', rank: 999, ...data, u: now() };
     return { attendees: [...s.attendees, a], introOrder: [...s.introOrder, id] };
   });
@@ -349,7 +352,7 @@ export default function App() {
     const seatMap = {}; const label = {};
     keys.forEach((k, i) => { const a = eligible[i]; if (a) { seatMap[k] = a.id; label[a.id] = seatLabel(k); } });
     return {
-      attendees: s.attendees.map(a => ({ ...a, seat: label[a.id] || '', u: t })),
+      attendees: s.attendees.map(a => (a.seat || '') !== (label[a.id] || '') ? { ...a, seat: label[a.id] || '', u: t } : a),
       seatMap,
       introOrder: sorted.map(a => a.id),
       speechOrder: [...s.speechOrder].sort((x, y) => { const ax = s.attendees.find(a => a.id === x) || {}, ay = s.attendees.find(a => a.id === y) || {}; return SPEECH_TYPES.indexOf(ax.speechType) - SPEECH_TYPES.indexOf(ay.speechType) || byRank(ax, ay); }),
@@ -378,16 +381,16 @@ export default function App() {
     else ok = pin === state.adminPin;
     if (!ok) return false;
     pinStore.set(pin, keep);
-    setIsAdmin(true); sessionStorage.setItem('mars-admin', '1'); if (keep) localStorage.setItem('mars-admin-keep', '1');
+    setIsAdmin(true); try { sessionStorage.setItem('mars-admin', '1'); if (keep) localStorage.setItem('mars-admin-keep', '1'); } catch {}
     setLoginOpen(false); notify('관리자 모드로 전환되었습니다'); return true;
   };
   const changePin = async (newPin) => {
     if (!SYNC_ON) { patchMeta(() => ({ adminPin: newPin })); return true; }
     const ok = await syncChangePin(pinStore.get(), newPin);
-    if (ok) pinStore.set(newPin, localStorage.getItem('mars-admin-keep') === '1');
+    if (ok) pinStore.set(newPin, lsSafe.get('mars-admin-keep', '') === '1');
     return ok;
   };
-  const logout = () => { setIsAdmin(false); pinStore.clear(); sessionStorage.removeItem('mars-admin'); localStorage.removeItem('mars-admin-keep'); if (['manage', 'settings'].includes(view)) setView('board'); notify('조회 모드로 전환되었습니다'); };
+  const logout = () => { setIsAdmin(false); pinStore.clear(); try { sessionStorage.removeItem('mars-admin'); localStorage.removeItem('mars-admin-keep'); } catch {} if (['manage', 'settings'].includes(view)) setView('board'); notify('조회 모드로 전환되었습니다'); };
 
   const tabs = [
     { id: 'board', label: '현황판', icon: BarChart3, on: 'bg-indigo-600 text-white shadow', off: 'bg-indigo-50 text-indigo-700' },
@@ -451,7 +454,7 @@ export default function App() {
           updateAttendee={updateAttendee} toggleSpeech={toggleSpeech} toggleIntro={toggleIntro} notify={notify} />}
         {view === 'seat' && <SeatView attendees={attendees} zones={state.seatZones || DEFAULT_SEATZONES} seatMap={state.seatMap || {}} isAdmin={isAdmin} setStatus={setStatus} assignSeat={assignSeat} setZones={setZones} applyProtocol={applyProtocol} askUser={askUser} notify={notify} />}
         {view === 'report' && <ReportView stats={stats} attendees={attendees} event={event} speechOrder={speechOrder} notify={notify} />}
-        {view === 'manage' && isAdmin && <ManageView applyProtocol={applyProtocol} onQuickAdd={() => setQuickAdd(true)} attendees={attendees} updateAttendee={updateAttendee} addAttendee={addAttendee} removeAttendee={removeAttendee} setStatus={setStatus} toggleSpeech={toggleSpeech} toggleIntro={toggleIntro} notify={notify} askUser={askUser} patch={(fn) => patchMeta(s => { const r = fn(s); if (r.attendees) r.attendees = r.attendees.map(a => ({ ...a, u: now() })); return r; })} />}
+        {view === 'manage' && isAdmin && <ManageView applyProtocol={applyProtocol} onQuickAdd={() => setQuickAdd(true)} attendees={attendees} updateAttendee={updateAttendee} addAttendee={addAttendee} removeAttendee={removeAttendee} setStatus={setStatus} toggleSpeech={toggleSpeech} toggleIntro={toggleIntro} notify={notify} askUser={askUser} patch={(fn) => patchMeta(s => { const r = fn(s); if (r.attendees) { const t = now(); const prev = new Map(s.attendees.map(a => [a.id, a])); r.attendees = r.attendees.map(a => a === prev.get(a.id) ? a : { ...a, u: t }); } return r; })} />}
         {view === 'guide' && <GuideView state={state} stats={stats} sync={sync} isAdmin={isAdmin} />}
         {view === 'settings' && isAdmin && <SettingsView state={state} patch={patchMeta} setState={setState} notify={notify} sync={sync} askUser={askUser} changePin={changePin} />}
       </main>
@@ -1469,7 +1472,7 @@ function GuideView({ state, stats, sync, isAdmin }) {
           <li>오른쪽 위 <b>「관리자」</b> → 비밀번호 입력. 「이 기기에서 계속 관리자로 유지」를 켜 두면 다시 열어도 유지됩니다.</li>
           <li><b>도착 체크</b>: 현황판에서 이름 카드를 누름 → 「도착」. 내빈 관리 탭에서는 카드의 「도착」 단추를 바로 눌러도 됩니다. 다시 누르면 취소.</li>
           <li><b>불참</b>: 체크 창 또는 내빈 관리의 「불참」. 잘못 눌렀으면 「초기화」.</li>
-          <li><b>전체 초기화</b>(내빈 관리 윗줄): 모든 내빈을 미도착·소개×·말씀×로 되돌리고 인사말씀 순서를 비웁니다. 리허설 뒤·행사 아침에 한 번 누르고, 인사말씀 대상 몇 분만 다시 지정하면 됩니다. 「상태 초기화」(더보기)는 도착·불참만 지우고 소개·말씀 지정은 남깁니다.</li>
+          <li><b>전체 초기화</b>(내빈 관리 윗줄): 모든 내빈을 미도착·소개×·말씀×로 되돌리고 인사말씀 순서를 비웁니다. 리허설 뒤·행사 아침에 한 번 누르고, 인사말씀 대상 몇 분만 다시 지정하면 됩니다. <b>다른 운영진이 체크 중일 때는 누르지 마세요</b>(초기화 직후 몇 초 안에 다른 기기에서 누른 체크는 그 사람의 옛 소개·말씀 표시를 되살릴 수 있음). 「상태 초기화」(더보기)는 도착·불참만 지우고 소개·말씀 지정은 남깁니다.</li>
           <li><b>갑자기 오신 분</b>: 머리글 <b>「추가」</b> → 이름 검색 → 초청명단 1,049명에서 소속·직위가 채워진 채 도착 등록. 명단에 없으면 「새로 입력」.</li>
           <li><b>VIP지정석</b>: 좌석 탭에서 「의전순 자동 배정」 또는 빈 좌석을 눌러 직접 배정. 1열(빨간 테두리)이 지정석입니다. 열별 좌석 수는 「열 구성」에서 실제 홀에 맞게 바꿉니다.</li>
           <li><b>인사말씀 지정</b>: 체크 창의 「인사말씀」 또는 인사말씀·소개 탭의 「대상 추가」. 순서는 줄을 누르고 → 들어갈 자리를 누르면 바뀝니다.</li>
