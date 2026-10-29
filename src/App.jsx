@@ -8,7 +8,7 @@ import { ROSTER } from './roster.js';
 // =====================================================================
 
 const STORE_KEY = 'mars-vip-platform-v2';
-const APP_VERSION = '4.1.0';
+const APP_VERSION = '4.1.1';
 
 // ---------- 초기 자료 ----------
 const DEFAULT_EVENT = {
@@ -119,14 +119,21 @@ const mergeState = (local, remote) => {
   if (!local) return remote;
   const tomb = { ...(remote.tombstones || {}), ...(local.tombstones || {}) };
   const byId = new Map();
-  [...(remote.attendees || []), ...(local.attendees || [])].forEach(a => {
+  const rv = Math.max(local.rosterVer || 0, remote.rosterVer || 0);
+  const pool = [...((remote.rosterVer || 0) === rv ? remote.attendees || [] : []), ...((local.rosterVer || 0) === rv ? local.attendees || [] : [])];
+  pool.forEach(a => {
+    if (rv >= 8 && a.id < 900) return; // 옛 판(43명 체계) 번호대는 새 판에서 받지 않음
     const t = tomb[a.id]; if (t && t >= (a.u || 0)) return;
     const cur = byId.get(a.id);
     if (!cur || (a.u || 0) >= (cur.u || 0)) byId.set(a.id, a);
   });
-  const meta = (local.metaAt || 0) >= (remote.metaAt || 0) ? local : remote;
+  // 명단 판(rosterVer)이 높은 쪽이 항상 이기고, 같으면 더 최근에 순서·설정을 바꾼 쪽
+  const score = x => (x.rosterVer || 0) * 1e15 + (x.metaAt || 0);
+  const meta = score(local) >= score(remote) ? local : remote;
+  const other = meta === local ? remote : local;
   const attendees = [...byId.values()].map(normAtt).sort((a, b) => a.id - b.id);
-  return { ...meta, attendees, tombstones: tomb, nextId: Math.max(local.nextId || 0, remote.nextId || 0, ...attendees.map(a => a.id + 1)),
+  return { ...meta, rosterVer: Math.max(local.rosterVer || 0, remote.rosterVer || 0), seatZones: meta.seatZones || other.seatZones, seatMap: meta.seatMap || other.seatMap || {},
+    attendees, tombstones: tomb, nextId: Math.max(local.nextId || 0, remote.nextId || 0, ...attendees.map(a => a.id + 1)),
     speechOrder: (meta.speechOrder || []).filter(id => byId.has(id)), introOrder: [...(meta.introOrder || []).filter(id => byId.has(id)), ...attendees.map(a => a.id).filter(id => !(meta.introOrder || []).includes(id))] };
 };
 const syncHeaders = (pin) => ({ apikey: SYNC.key, Authorization: `Bearer ${SYNC.key}`, 'Content-Type': 'application/json', ...(pin ? { 'x-event-pin': pin } : {}) });
@@ -601,7 +608,7 @@ function BoardView({ attendees, stats, program, isAdmin, setStatus, toggleSpeech
                         {a.status !== '미도착' && <span className={`ml-auto shrink-0 px-1.5 py-0.5 rounded font-bold text-[11px] ${badge}`}>{a.status}</span>}
                       </div>
                       <div className="flex items-center gap-1.5 text-[11px] text-slate-400 min-w-0 leading-tight mt-0.5">
-                        {a.rsvp !== 'O' && <span className={`shrink-0 font-semibold ${a.rsvp === 'T' ? 'text-amber-600' : a.rsvp === 'X' ? 'text-rose-500' : 'text-slate-400'}`}>{a.rsvp === 'T' ? '△미정' : a.rsvp === 'X' ? '✕사전불참' : '미확인'}</span>}
+                        {a.rsvp !== 'O' && <span className={`shrink-0 font-semibold ${a.rsvp === 'T' ? 'text-amber-600' : a.rsvp === 'X' ? 'text-rose-500' : 'text-slate-400'}`}>{a.rid == null ? '현장추가' : a.rsvp === 'T' ? '△미정' : a.rsvp === 'X' ? '✕사전불참' : '미확인'}</span>}
                         <span className="min-w-0 truncate">{a.organization}</span>
                         <span className="shrink-0 font-mono">· {a.seat}{(a.seatedTime || a.arrivalTime) && ` · ${a.seatedTime || a.arrivalTime}`}</span>
                         {!a.intro && <span className="shrink-0 px-1 rounded border border-slate-300">소개×</span>}
