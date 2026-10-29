@@ -8,7 +8,7 @@ import { ROSTER } from './roster.js';
 // =====================================================================
 
 const STORE_KEY = 'mars-vip-platform-v2';
-const APP_VERSION = '4.0.0';
+const APP_VERSION = '4.0.1';
 
 // ---------- 초기 자료 ----------
 const DEFAULT_EVENT = {
@@ -986,7 +986,8 @@ function ManageView({ applyProtocol, onQuickAdd, attendees, updateAttendee, addA
   const [sort, setSort] = useState(() => { try { return localStorage.getItem('mars-manage-sort') || 'rank'; } catch { return 'rank'; } });
   useEffect(() => { try { localStorage.setItem('mars-manage-sort', sort); } catch {} }, [sort]);
   const ST_ORDER = { '도착': 0, '착석': 0, '미도착': 1, '불참': 3, '퇴장': 4 };
-  const sorter = { rank: byRank, reg: (x, y) => x.id - y.id, seat: (x, y) => (x.seat || '~').localeCompare(y.seat || '~'), name: (x, y) => x.name.localeCompare(y.name, 'ko'), status: (x, y) => ST_ORDER[x.status] - ST_ORDER[y.status] || byRank(x, y) }[sort];
+  const RSVP_ORDER = { O: 0, T: 1, '': 2, X: 3 };
+  const sorter = { rank: byRank, reg: (x, y) => x.id - y.id, seat: (x, y) => (x.seat || '~').localeCompare(y.seat || '~'), name: (x, y) => x.name.localeCompare(y.name, 'ko'), status: (x, y) => ST_ORDER[x.status] - ST_ORDER[y.status] || byRank(x, y), rsvp: (x, y) => RSVP_ORDER[x.rsvp ?? ''] - RSVP_ORDER[y.rsvp ?? ''] || byRank(x, y) }[sort];
   const shown = attendees.filter(a => !q.trim() || `${a.name}${a.organization}${a.position}${a.category}${a.seat}`.includes(q.trim())).sort(sorter);
   const doProtocol = async () => { if (await askUser('의전 순위대로 맞춥니다.\n· 내빈 소개·인사말씀 순서를 의전순으로\n· VIP지정석을 1열 통로 쪽부터 자동 배정(불참 제외)\n\n지금 순서와 좌석 배정이 바뀝니다. 계속할까요?')) { applyProtocol(); notify('의전순으로 맞췄습니다'); } };
   const [showPaste, setShowPaste] = useState(false);
@@ -1029,7 +1030,7 @@ function ManageView({ applyProtocol, onQuickAdd, attendees, updateAttendee, addA
       </div>
       <div className="flex items-center gap-1 mb-1.5 overflow-x-auto text-xs">
         <span className="text-slate-500 shrink-0">정렬</span>
-        {[['rank', '의전순'], ['status', '도착 먼저'], ['seat', '좌석순'], ['name', '가나다순'], ['reg', '등록순']].map(([k, l]) => (
+        {[['rank', '의전순'], ['status', '도착 먼저'], ['rsvp', '사전참석(○) 먼저'], ['seat', '좌석순'], ['name', '가나다순'], ['reg', '등록순']].map(([k, l]) => (
           <button key={k} onClick={() => setSort(k)} className={`shrink-0 px-2 py-0.5 rounded-full border font-semibold ${sort === k ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-300'}`}>{l}</button>
         ))}
       </div>
