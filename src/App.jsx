@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Users, Crown, MapPin, Clock, BarChart3, Mic2, FileText, Bell, X, Lock, Unlock, Settings, Copy, Plus, Trash2, GripVertical, Download, Upload, RotateCcw, ListOrdered, Eye, LogIn, BookOpen, Printer, UserPlus, MessageCircle, Pencil, Search, Share2, ArrowUpDown } from 'lucide-react';
+import { ROSTER } from './roster.js';
 
 // =====================================================================
 // 공공행사 내빈 소개·인사말씀 운영 플랫폼 (AI EXPO 「MARS 2026」 개막식)
@@ -7,7 +8,7 @@ import { Users, Crown, MapPin, Clock, BarChart3, Mic2, FileText, Bell, X, Lock, 
 // =====================================================================
 
 const STORE_KEY = 'mars-vip-platform-v2';
-const APP_VERSION = '3.9.1';
+const APP_VERSION = '4.0.0';
 
 // ---------- 초기 자료 ----------
 const DEFAULT_EVENT = {
@@ -31,111 +32,60 @@ const DEFAULT_PROGRAM = [
   { id: 'p10', time: '12:05', dur: 25, title: 'VIP 전시 투어', note: '코엑스 3층 D홀' },
 ];
 
-// 2차 RSVP(10.23.) 참석 회신 내빈 43명
-const SEED = [
-  ['국회', '국회', '국회의원', '김종민', ''],
-  ['정부부처', '국가인공지능전략위원회', '상근부위원장', '하정우', '가급적 참석 예정'],
-  ['정부부처', '국가인공지능전략위원회', '공공AX 분과위원', '하용호', ''],
-  ['정부부처', '국가인공지능전략위원회', '공공AX 분과위원', '김동환', ''],
-  ['정부부처', '국가인공지능전략위원회', '데이터 분과위원', '조성배', ''],
-  ['정부부처', '국가인공지능전략위원회', '글로벌협력 분과위원', '전종홍', ''],
-  ['정부 산하기관', '한국데이터산업진흥원', '원장', '양재수', ''],
-  ['유관기관', '한국피지컬AI협회', '협회장', '유태준', ''],
-  ['유관기관', '한국항공우주학회', '회장', '구남서', ''],
-  ['유관기관', '한국천문학회', '회장', '채종철', ''],
-  ['지자체·기관', '과천시의회', '의장', '황선희', ''],
-  ['산업 관련 기관', '경기지역FTA통상진흥센터', '센터장', '한상선', ''],
-  ['관내 유관기관', '화성상공회의소', '회장', '안상교', ''],
-  ['산업진흥원', '군포산업진흥원', '원장', '유병직', ''],
-  ['산업진흥원', '성남산업진흥원', '원장', '이주연', ''],
-  ['산업진흥원', '시흥산업진흥원', '원장', '임창주', ''],
-  ['산업진흥원', '부천산업진흥원', '원장', '신동학', ''],
-  ['대학교', '협성대학교', '총장', '서명수', ''],
-  ['대학교', '장안대학교', '총장', '이종진', ''],
-  ['대학교', '화성의과학대학교', '총장', '김진영', ''],
-  ['투자사', '캡스톤파트너스', '부사장', '황태칠', ''],
-  ['투자사', '앨엔에스벤처캐피탈', '대표이사', '장동식', ''],
-  ['투자사', '㈜신한벤처투자', '투자부문대표', '장기용', ''],
-  ['투자사', '타임웍스인베스트먼트', '대표이사', '나종윤', ''],
-  ['투자사', '제피러스랩', '대표이사', '서영우', ''],
-  ['MARS 얼라이언스', '화성특례시', '시장', '정명근', '주최'],
-  ['MARS 얼라이언스', '화성시의회', '의장', '이계철', ''],
-  ['MARS 얼라이언스', '화성산업진흥원', '원장', '전병선', ''],
-  ['MARS 얼라이언스', '신세계프라퍼티', '개발본부장(상무)', '서재옥', ''],
-  ['MARS 얼라이언스', '볼트라인', '대표이사', '김도원', ''],
-  ['MARS 얼라이언스', '기아', '상무', '이혜영', '국내마케팅실'],
-  ['MARS 얼라이언스', 'JMR', '대표', '김동진', ''],
-  ['MARS 얼라이언스', '제우스', '팀장', '황재익', ''],
-  ['MARS 얼라이언스', '아비만로보틱스', '연구소장', '함민기', ''],
-  ['MARS 얼라이언스', '삼성생명', '부사장', '최정훈', ''],
-  ['MARS 얼라이언스', '삼성생명', '상무', '김봉재', ''],
-  ['MARS 얼라이언스', '삼성생명', '상무', '오상택', ''],
-  ['MARS 얼라이언스', '동탄시티병원', '행정원장', '김미영', ''],
-  ['MARS 얼라이언스', '대웅제약', '대표이사', '이창재', '일정상 오찬 불가'],
-  ['MARS 얼라이언스', '대웅제약', '상무', '조병하', ''],
-  ['MARS 얼라이언스', '현대차그룹', '(확인 중)', '(확인 중)', '참석자 확인 중'],
-  ['MARS 얼라이언스', '이노스페이스', '대표', '김수종', ''],
-  ['기타', '한국군사문제연구원', '원장', '이재헌', ''],
-];
-
-const SPEECH_DEFAULT = { '정명근': '개회사', '이계철': '환영사', '김종민': '축사', '하정우': '축사' };
+// ---------- 초청명단(8차, 10.29.) 기반 초기 자료 ----------
+const T0 = 1793256699493; // 명단 반영 시점 — 이보다 오래된 기록은 새 명단으로 대체
 const SPEECH_TYPES = ['개회사', '환영사', '축사', '격려사', '기념사', '인사말'];
-
-// 의전 순위 초안: 주최 → 국회 → 중앙정부·위원회 → 지방의회 → 공공기관장 → 학계·단체 → 경제계(대표이사 → 부사장 → 상무…) → 투자사
-const DEFAULT_RANK = {
-  '정명근': 1, '김종민': 2, '하정우': 3, '하용호': 4, '김동환': 5, '조성배': 6, '전종홍': 7,
-  '이계철': 8, '황선희': 9,
-  '양재수': 10, '전병선': 11, '유병직': 12, '이주연': 13, '임창주': 14, '신동학': 15, '한상선': 16, '이재헌': 17,
-  '서명수': 18, '이종진': 19, '김진영': 20, '유태준': 21, '구남서': 22, '채종철': 23,
-  '안상교': 24, '김도원': 25, '이창재': 26, '김수종': 27, '김동진': 28, '최정훈': 29, '서재옥': 30, '이혜영': 31,
-  '김봉재': 32, '오상택': 33, '조병하': 34, '김미영': 35, '함민기': 36, '황재익': 37, '(확인 중)': 38,
-  '장동식': 39, '나종윤': 40, '서영우': 41, '장기용': 42, '황태칠': 43,
+const MARK_TXT = { O: '○ 사전참석', T: '△ 미정', X: '✕ 사전불참', '': '미확인' };
+const HOST = { id: 901, rid: -1, category: '주최', organization: '화성특례시', position: '시장', name: '정명근', note: '주최', grade: 'VIP', rsvp: 'O', seat: '', status: '미도착', arrivalTime: null, seatedTime: null, intro: false, rank: 1, speech: true, speechType: '개회사', u: T0 };
+const SPEECH_DEFAULT = { '이계철': '환영사', '김종민': '축사', '하정우': '축사' };
+const fromRoster = (i, extra) => {
+  const [grade, category, organization, position, name, rsvp] = ROSTER[i];
+  return { id: 1000 + i, rid: i, grade, category, organization, position, name, rsvp, note: '', seat: '', status: '미도착', arrivalTime: null, seatedTime: null, intro: true, rank: i + 2, speech: !!SPEECH_DEFAULT[name], speechType: SPEECH_DEFAULT[name] || '축사', u: T0, ...extra };
 };
-const rankOf = (a) => (a.rank != null && a.rank !== '' ? Number(a.rank) : (DEFAULT_RANK[a.name] ?? 999));
+// 예정 명단: 사전회신 ○·△ 전원 + VIP 등급 미확인
+const LISTED = ROSTER.map((r, i) => i).filter(i => ROSTER[i][5] === 'O' || ROSTER[i][5] === 'T' || (ROSTER[i][0] === 'VIP' && ROSTER[i][5] === ''));
+const rankOf = (a) => (a.rank != null && a.rank !== '' ? Number(a.rank) : 999);
 const byRank = (x, y) => rankOf(x) - rankOf(y) || x.id - y.id;
-// 한 줄 안에서 상석 순서: 무대에서 내려다보아 가운데 → 왼쪽 → 오른쪽 교대 (배치도 기준 가운데 → 오른쪽 → 왼쪽)
-const centerOrder = (n) => {
-  const out = []; const c = Math.floor(n / 2);
-  if (n % 2) { out.push(c); for (let d = 1; out.length < n; d++) { if (c + d < n) out.push(c + d); if (c - d >= 0) out.push(c - d); } }
-  else { out.push(c, c - 1); for (let d = 1; out.length < n; d++) { if (c + d < n) out.push(c + d); if (c - 1 - d >= 0) out.push(c - 1 - d); } }
-  return out.slice(0, n);
+const makeSeed = () => [HOST, ...LISTED.map(i => fromRoster(i))];
+const seedSpeechOrder = (list) => ['정명근', '이계철', '김종민', '하정우'].map(n => list.find(a => a.name === n && a.speech)?.id).filter(Boolean);
+
+// ---------- 좌석: 오디토리움 VIP지정석 (무대 앞 가운데 좌·우 블록, 1열이 지정석) ----------
+const DEFAULT_SEATZONES = [
+  { id: 'L', name: '좌측 블록', rows: [6, 7, 8], vip: 1 },
+  { id: 'R', name: '우측 블록', rows: [6, 7, 8], vip: 1 },
+];
+const seatKey = (z, r, c) => `${z}:${r}:${c}`;
+const seatLabel = (k) => { const [z, r, c] = k.split(':'); return `${z === 'L' ? '좌' : z === 'R' ? '우' : z}${r}-${c}`; };
+// 배정 순서: 1열부터, 가운데 통로에 가까운 자리부터 우측 → 좌측 교대
+const seatKeysInOrder = (zones) => {
+  const L = zones.find(z => z.id === 'L') || zones[0] || { rows: [] };
+  const R = zones.find(z => z.id === 'R') || zones[1] || { rows: [] };
+  const out = []; const nRows = Math.max(L.rows.length, R.rows.length);
+  for (let r = 0; r < nRows; r++) {
+    const ln = L.rows[r] || 0, rn = R.rows[r] || 0;
+    for (let i = 0; i < Math.max(ln, rn); i++) {
+      if (i < rn) out.push(seatKey('R', r + 1, i + 1));
+      if (i < ln) out.push(seatKey('L', r + 1, ln - i));
+    }
+  }
+  return out;
 };
-
-const makeSeed = () => SEED.map((r, i) => ({
-  id: i + 1,
-  category: r[0], organization: r[1], position: r[2], name: r[3], note: r[4],
-  grade: 'VVIP',
-  seat: `A-${String(i + 1).padStart(2, '0')}`,
-  status: '미도착',
-  arrivalTime: null, seatedTime: null,
-  intro: r[4] !== '주최',
-  rank: DEFAULT_RANK[r[3]] ?? 999,
-  speech: !!SPEECH_DEFAULT[r[3]],
-  speechType: SPEECH_DEFAULT[r[3]] || '축사',
-}));
-
-const seedSpeechOrder = (list) => ['정명근', '이계철', '김종민', '하정우'].map(n => list.find(a => a.name === n)?.id).filter(Boolean);
 
 const DEFAULT_STATE = () => {
   const attendees = makeSeed();
+  const tomb = {}; for (let k = 1; k <= 120; k++) tomb[k] = T0; // 이전 판(43명 체계) 기록 정리
   return {
-    event: DEFAULT_EVENT,
-    program: DEFAULT_PROGRAM,
-    attendees,
-    speechOrder: seedSpeechOrder(attendees),
-    introOrder: attendees.map(a => a.id),
-    seatLayout: { A: { x: 20, y: 20, cols: 10 } },
-    adminPin: '1234',
-    nextId: attendees.length + 1,
-    metaAt: 0,
-    tombstones: {},
+    event: DEFAULT_EVENT, program: DEFAULT_PROGRAM, attendees,
+    speechOrder: seedSpeechOrder(attendees), introOrder: attendees.map(a => a.id),
+    seatZones: DEFAULT_SEATZONES, seatMap: {}, seatLayout: {},
+    adminPin: '1234', nextId: 900001, metaAt: T0, tombstones: tomb, rosterVer: 8,
   };
 };
 
 const loadState = () => {
   try {
     const s = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
-    if (s && s.attendees) return normState({ ...DEFAULT_STATE(), ...s });
+    if (s && s.attendees && s.rosterVer === 8) return normState({ ...DEFAULT_STATE(), ...s });
   } catch {}
   return DEFAULT_STATE();
 };
@@ -151,12 +101,13 @@ const STATUS_STYLE = {
   '불참': 'bg-rose-50 text-rose-700 border-rose-300',
 };
 const STATUS_DOT = { '미도착': 'bg-slate-400', '도착': 'bg-emerald-500', '착석': 'bg-emerald-500', '퇴장': 'bg-slate-300', '불참': 'bg-rose-500' };
-const GRADES = ['VVIP', 'VIP', '일반', '관계자'];
+const GRADES = ['VIP', 'S', 'A', 'B', '기타'];
 const GRADE_STYLES = {
-  'VVIP': { bg: 'bg-rose-600', light: 'bg-rose-50', border: 'border-rose-200' },
-  'VIP': { bg: 'bg-amber-500', light: 'bg-amber-50', border: 'border-amber-200' },
-  '일반': { bg: 'bg-slate-500', light: 'bg-slate-50', border: 'border-slate-200' },
-  '관계자': { bg: 'bg-sky-600', light: 'bg-sky-50', border: 'border-sky-200' },
+  'VIP': { bg: 'bg-rose-600', light: 'bg-rose-50', border: 'border-rose-200' },
+  'S': { bg: 'bg-amber-500', light: 'bg-amber-50', border: 'border-amber-200' },
+  'A': { bg: 'bg-sky-600', light: 'bg-sky-50', border: 'border-sky-200' },
+  'B': { bg: 'bg-slate-500', light: 'bg-slate-50', border: 'border-slate-200' },
+  '기타': { bg: 'bg-slate-400', light: 'bg-slate-50', border: 'border-slate-200' },
 };
 // ---------- 공유 저장소(Supabase) ----------
 const SYNC = { url: 'https://sbnjodqxvwgqgdnzcziz.supabase.co', key: 'sb_publishable_vDOafQ_YqlElOwBxLeHHvA_x1mgHGLw', table: 'event_state', id: 'mars-2026' };
@@ -352,30 +303,45 @@ export default function App() {
     introOrder: on ? (s.introOrder.includes(id) ? s.introOrder : [...s.introOrder, id]) : s.introOrder.filter(x => x !== id),
   }));
   const addAttendee = (data) => patchMeta(s => {
-    const id = Math.max(s.nextId, ...s.attendees.map(a => a.id + 1), ...Object.keys(s.tombstones || {}).map(k => Number(k) + 1));
-    const a = { id, category: '기타', organization: '', position: '', name: '', note: '', grade: 'VVIP', seat: '', status: '미도착', arrivalTime: null, seatedTime: null, intro: true, speech: false, speechType: '축사', ...data, u: now() };
-    return { attendees: [...s.attendees, a], introOrder: [...s.introOrder, id], nextId: id + 1 };
+    const id = Date.now();
+    const a = { id, rid: null, category: '현장 추가', organization: '', position: '', name: '', note: '현장 추가', grade: '기타', rsvp: '', seat: '', status: '도착', arrivalTime: nowHM(), seatedTime: null, intro: true, speech: false, speechType: '축사', rank: 999, ...data, u: now() };
+    return { attendees: [...s.attendees, a], introOrder: [...s.introOrder, id] };
   });
-  // 의전순 적용: 순위 채우기 + 내빈 소개 순서 + 구역별 좌석(가운데 상석)
+  // 대기 명단(초청명단 전체)에서 찾아 올리기 — 같은 사람은 기기와 무관하게 같은 번호(1000+순번)
+  const addFromRoster = (i) => patchMeta(s => {
+    const id = 1000 + i;
+    const ex = s.attendees.find(a => a.id === id);
+    if (ex) return { attendees: s.attendees.map(a => a.id === id ? { ...a, status: '도착', arrivalTime: a.arrivalTime || nowHM(), u: now() } : a) };
+    const a = fromRoster(i, { status: '도착', arrivalTime: nowHM(), u: now() });
+    return { attendees: [...s.attendees, a], introOrder: [...s.introOrder, id] };
+  });
+  // 좌석 배정/해제: id가 없으면 해당 좌석 비우기
+  const assignSeat = (key, id) => patchMeta(s => {
+    const m = { ...(s.seatMap || {}) };
+    if (id == null) { delete m[key]; }
+    else { Object.keys(m).forEach(k => { if (m[k] === id) delete m[k]; }); m[key] = id; }
+    const label = {}; Object.entries(m).forEach(([k, v]) => { label[v] = seatLabel(k); });
+    return { seatMap: m, attendees: s.attendees.map(a => (a.seat || '') !== (label[a.id] || '') ? { ...a, seat: label[a.id] || '', u: now() } : a) };
+  });
+  const setZones = (zones) => patchMeta(s => {
+    const valid = new Set(seatKeysInOrder(zones));
+    const m = {}; Object.entries(s.seatMap || {}).forEach(([k, v]) => { if (valid.has(k)) m[k] = v; });
+    const label = {}; Object.entries(m).forEach(([k, v]) => { label[v] = seatLabel(k); });
+    return { seatZones: zones, seatMap: m, attendees: s.attendees.map(a => (a.seat || '') !== (label[a.id] || '') ? { ...a, seat: label[a.id] || '', u: now() } : a) };
+  });
+  // 의전순 적용: 소개·인사말씀 순서 정렬 + 지정석(통로 가까운 자리부터 우→좌 교대) 자동 배정
   const applyProtocol = () => patchMeta(s => {
     const t = now();
-    const ranked = s.attendees.map(a => ({ ...a, rank: rankOf(a) }));
-    const seat = {};
-    const zones = [...new Set(ranked.map(a => (a.seat || 'A-').split('-')[0] || 'A'))];
-    zones.forEach(z => {
-      const list = ranked.filter(a => ((a.seat || 'A-').split('-')[0] || 'A') === z).sort(byRank);
-      const cols = (s.seatLayout && s.seatLayout[z] && s.seatLayout[z].cols) || 10;
-      for (let r0 = 0; r0 < list.length; r0 += cols) {
-        const row = list.slice(r0, r0 + cols); const pos = centerOrder(row.length);
-        row.forEach((a, j) => { seat[a.id] = `${z}-${String(r0 + pos[j] + 1).padStart(2, '0')}`; });
-      }
-    });
-    const sorted = [...ranked].sort(byRank);
+    const sorted = [...s.attendees].sort(byRank);
+    const keys = seatKeysInOrder(s.seatZones || DEFAULT_SEATZONES);
+    const eligible = sorted.filter(a => a.status !== '불참');
+    const seatMap = {}; const label = {};
+    keys.forEach((k, i) => { const a = eligible[i]; if (a) { seatMap[k] = a.id; label[a.id] = seatLabel(k); } });
     return {
-      attendees: ranked.map(a => ({ ...a, seat: seat[a.id] || a.seat, intro: a.note === '주최' ? false : a.intro, u: t })),
+      attendees: s.attendees.map(a => ({ ...a, seat: label[a.id] || '', u: t })),
+      seatMap,
       introOrder: sorted.map(a => a.id),
-      // 인사말씀: 개회사 → 환영사 → 축사 → 격려사 … 순, 같은 종류 안에서는 의전순
-      speechOrder: [...s.speechOrder].sort((x, y) => { const ax = ranked.find(a => a.id === x) || {}, ay = ranked.find(a => a.id === y) || {}; return SPEECH_TYPES.indexOf(ax.speechType) - SPEECH_TYPES.indexOf(ay.speechType) || byRank(ax, ay); }),
+      speechOrder: [...s.speechOrder].sort((x, y) => { const ax = s.attendees.find(a => a.id === x) || {}, ay = s.attendees.find(a => a.id === y) || {}; return SPEECH_TYPES.indexOf(ax.speechType) - SPEECH_TYPES.indexOf(ay.speechType) || byRank(ax, ay); }),
     };
   });
   const removeAttendee = (id) => patchMeta(s => ({
@@ -472,7 +438,7 @@ export default function App() {
         {view === 'speech' && <SpeechView attendees={attendees} speechOrder={speechOrder} introOrder={introOrder} isAdmin={isAdmin}
           setSpeechOrder={o => patchMeta(() => ({ speechOrder: o }))} setIntroOrder={o => patchMeta(() => ({ introOrder: o }))}
           updateAttendee={updateAttendee} toggleSpeech={toggleSpeech} toggleIntro={toggleIntro} notify={notify} />}
-        {view === 'seat' && <SeatView attendees={attendees} layout={state.seatLayout} setLayout={l => patch(s => ({ seatLayout: typeof l === 'function' ? l(s.seatLayout) : l }))} isAdmin={isAdmin} setStatus={setStatus} toggleSpeech={toggleSpeech} toggleIntro={toggleIntro} updateAttendee={updateAttendee} patch={fn => patchMeta(s => { const r = fn(s); if (r.attendees) { const before = new Map(s.attendees.map(a => [a.id, a.seat])); r.attendees = r.attendees.map(a => before.get(a.id) !== a.seat ? { ...a, u: now() } : a); } return r; })} notify={notify} askUser={askUser} />}
+        {view === 'seat' && <SeatView attendees={attendees} zones={state.seatZones || DEFAULT_SEATZONES} seatMap={state.seatMap || {}} isAdmin={isAdmin} setStatus={setStatus} assignSeat={assignSeat} setZones={setZones} applyProtocol={applyProtocol} askUser={askUser} notify={notify} />}
         {view === 'report' && <ReportView stats={stats} attendees={attendees} event={event} speechOrder={speechOrder} notify={notify} />}
         {view === 'manage' && isAdmin && <ManageView applyProtocol={applyProtocol} onQuickAdd={() => setQuickAdd(true)} attendees={attendees} updateAttendee={updateAttendee} addAttendee={addAttendee} removeAttendee={removeAttendee} setStatus={setStatus} toggleSpeech={toggleSpeech} toggleIntro={toggleIntro} notify={notify} askUser={askUser} patch={(fn) => patchMeta(s => { const r = fn(s); if (r.attendees) r.attendees = r.attendees.map(a => ({ ...a, u: now() })); return r; })} />}
         {view === 'guide' && <GuideView state={state} stats={stats} sync={sync} isAdmin={isAdmin} />}
@@ -486,7 +452,7 @@ export default function App() {
 
       {ask && <AskModal ask={ask} onDone={v => { ask.resolve(v); setAsk(null); }} />}
       {loginOpen && <LoginModal onClose={() => setLoginOpen(false)} onLogin={login} />}
-      {quickAdd && <QuickAddModal onClose={() => setQuickAdd(false)} attendees={attendees} onAdd={(d) => { addAttendee(d); setQuickAdd(false); notify(`${d.name} ${d.position}님을 ${d.status} 상태로 추가했습니다`); }} />}
+      {quickAdd && <QuickAddModal onClose={() => setQuickAdd(false)} attendees={attendees} onAddRoster={(i) => { addFromRoster(i); setQuickAdd(false); notify(`${ROSTER[i][4]} ${ROSTER[i][3]}님을 도착으로 등록했습니다`); }} onAdd={(d) => { addAttendee(d); setQuickAdd(false); notify(`${d.name}님을 도착으로 추가했습니다`); }} />}
       {reportOpen && <KakaoReportModal onClose={() => setReportOpen(false)} stats={stats} attendees={attendees} event={event} speechOrder={speechOrder} notify={notify} />}
       <PrintSheet event={event} attendees={attendees} speechOrder={speechOrder} introOrder={introOrder} stats={stats} />
       {toast && <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-slate-900/95 text-white text-xs px-4 py-2 rounded-full shadow-xl z-50 print:hidden">{toast}</div>}
@@ -562,7 +528,7 @@ function BoardView({ attendees, stats, program, isAdmin, setStatus, toggleSpeech
   useEffect(() => { const t = setInterval(() => setClock(nowHM()), 15000); return () => clearInterval(t); }, []);
 
   const present = attendees.filter(a => PRESENT.includes(a.status)).sort((a, b) => (b.seatedTime || b.arrivalTime || '').localeCompare(a.seatedTime || a.arrivalTime || ''));
-  const categories = [...new Set(attendees.map(a => a.category))];
+  const categories = GRADES.filter(g => attendees.some(a => a.grade === g));
   const visible = attendees.filter(a => (filter === '전체' || a.status === filter || (filter === '인사말씀' && a.speech)) && (!q || `${a.name}${a.organization}${a.position}`.includes(q)));
   const current = program.findIndex((p, i) => { const n = program[i + 1]; return clock >= p.time && (!n || clock < n.time); });
 
@@ -570,7 +536,7 @@ function BoardView({ attendees, stats, program, isAdmin, setStatus, toggleSpeech
     <div className="space-y-3">
       {/* 핵심 지표 */}
       <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
-        <KPI label="초청" value={stats.total} />
+        <KPI label="예정" value={stats.total} />
         <KPI label="도착" value={stats.present} sub={`${stats.rate}%`} tone="emerald" />
         <KPI label="불참" value={stats.absent} tone="rose" />
         <KPI label="말씀" value={`${stats.speakersPresent}/${stats.speakers}`} tone="violet" />
@@ -610,7 +576,7 @@ function BoardView({ attendees, stats, program, isAdmin, setStatus, toggleSpeech
         </div>
 
         {categories.map(cat => {
-          const list = visible.filter(a => a.category === cat);
+          const list = visible.filter(a => a.grade === cat);
           if (!list.length) return null;
           const pc = list.filter(a => PRESENT.includes(a.status)).length;
           return (
@@ -633,6 +599,7 @@ function BoardView({ attendees, stats, program, isAdmin, setStatus, toggleSpeech
                         {a.status !== '미도착' && <span className={`ml-auto shrink-0 px-1.5 py-0.5 rounded font-bold text-[11px] ${badge}`}>{a.status}</span>}
                       </div>
                       <div className="flex items-center gap-1.5 text-[11px] text-slate-400 min-w-0 leading-tight mt-0.5">
+                        {a.rsvp !== 'O' && <span className={`shrink-0 font-semibold ${a.rsvp === 'T' ? 'text-amber-600' : a.rsvp === 'X' ? 'text-rose-500' : 'text-slate-400'}`}>{a.rsvp === 'T' ? '△미정' : a.rsvp === 'X' ? '✕사전불참' : '미확인'}</span>}
                         <span className="min-w-0 truncate">{a.organization}</span>
                         <span className="shrink-0 font-mono">· {a.seat}{(a.seatedTime || a.arrivalTime) && ` · ${a.seatedTime || a.arrivalTime}`}</span>
                         {!a.intro && <span className="shrink-0 px-1 rounded border border-slate-300">소개×</span>}
@@ -853,225 +820,157 @@ function SpeechView({ attendees, speechOrder, introOrder, setSpeechOrder, setInt
 }
 
 // =====================================================================
-// 좌석 현황 — 예매 좌석도 방식(무대 위, 열 번호, 범례, 좌석 찾기)
+// 좌석 현황 — 오디토리움 VIP지정석 (무대 앞 가운데 좌·우 블록, 1열이 지정석)
 // =====================================================================
-const SEAT_TONE = {
-  '착석': 'bg-emerald-600 text-white border-emerald-700',
-  '도착': 'bg-emerald-600 text-white border-emerald-700',
-  '미도착': 'bg-white text-slate-700 border-slate-300',
-  '불참': 'bg-rose-50 text-rose-300 border-rose-200 line-through',
-  '퇴장': 'bg-slate-200 text-slate-500 border-slate-300',
-};
-const zoneOf = a => (a.seat || '').split('-')[0];
-const seatNo = a => Number((a.seat || '').split('-')[1]) || 0;
-
-function SeatView({ attendees, layout, setLayout, isAdmin, setStatus, toggleSpeech, toggleIntro, updateAttendee, patch, notify, askUser }) {
-  const lsGet = (k, d) => { try { return localStorage.getItem(k) ?? d; } catch { return d; } };
-  const [mode, setMode] = useState('check');            // check | move
-  const [view, setView] = useState(() => lsGet('mars-seat-view', (typeof window !== 'undefined' && window.innerWidth < 640) ? 'list' : 'map')); // map | list
-  const [size, setSize] = useState(() => Number(lsGet('mars-seat-size', '56')));
+function SeatView({ attendees, zones, seatMap, isAdmin, setStatus, assignSeat, setZones, applyProtocol, askUser, notify }) {
   const [q, setQ] = useState('');
-  const [picked, setPicked] = useState(null);
-  const [sheet, setSheet] = useState(null);
-  const [drag, setDrag] = useState(null);
-  const [over, setOver] = useState(null);
-  useEffect(() => { try { localStorage.setItem('mars-seat-view', view); localStorage.setItem('mars-seat-size', String(size)); } catch {} }, [view, size]);
-  useEffect(() => { setPicked(null); }, [mode]);
+  const [pickFor, setPickFor] = useState(null);   // 배정할 좌석 key
+  const [sheet, setSheet] = useState(null);       // 눌러 연 좌석 key
+  const [editRows, setEditRows] = useState(false);
+  const byId = new Map(attendees.map(a => [a.id, a]));
+  const qq = q.trim();
+  const hitIds = new Set(qq ? attendees.filter(a => (a.name + a.organization).includes(qq)).map(a => a.id) : []);
+  const occ = Object.entries(seatMap).filter(([, id]) => byId.has(id));
+  const arrived = occ.filter(([, id]) => PRESENT.includes(byId.get(id).status)).length;
 
-  const zonesInData = [...new Set(attendees.map(zoneOf).filter(Boolean))];
-  const extraZones = Object.keys(layout).filter(k => k !== '_order' && !zonesInData.includes(k));
-  const allZones = [...zonesInData, ...extraZones];
-  const order = (layout._order || []).filter(z => allZones.includes(z));
-  const zones = [...order, ...allZones.filter(z => !order.includes(z)).sort()];
-  const colsOf = z => (layout[z] && layout[z].cols) || 10;
-  const hit = q.trim() ? attendees.filter(a => `${a.name}${a.organization}${a.position}`.includes(q.trim())) : [];
-  const hitIds = new Set(hit.map(a => a.id));
-  useEffect(() => { if (hit[0]) document.querySelector(`[data-seat-id="${hit[0].id}"]`)?.scrollIntoView({ block: 'center', inline: 'center', behavior: 'smooth' }); }, [q]);
+  const Seat = ({ z, r, c, vip }) => {
+    const k = seatKey(z.id, r, c); const a = byId.get(seatMap[k]);
+    const cls = a
+      ? (PRESENT.includes(a.status) ? 'bg-emerald-600 text-white border-emerald-700' : a.status === '불참' ? 'bg-rose-50 text-rose-400 border-rose-300 line-through' : 'bg-white text-slate-800 border-slate-500')
+      : 'bg-slate-50 text-slate-300 border-dashed border-slate-300';
+    return (
+      <button onClick={() => { if (a) setSheet(k); else if (isAdmin) setPickFor(k); }}
+        title={a ? `${seatLabel(k)} ${a.name} ${a.position} · ${a.status}` : seatLabel(k)}
+        className={`relative w-11 h-11 shrink-0 rounded-md border-2 flex flex-col items-center justify-center leading-none ${cls} ${vip ? 'ring-2 ring-rose-500 ring-offset-1' : ''} ${a && hitIds.has(a.id) ? 'ring-4 ring-fuchsia-500 animate-pulse' : ''}`}>
+        {a ? (<><span className="text-[12px] font-bold">{a.name.slice(0, 3)}</span><span className="text-[8px] opacity-70 mt-0.5">{c}</span>{a.speech && <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-violet-500 ring-1 ring-white" />}</>)
+          : (<span className="text-[10px]">{c}</span>)}
+      </button>
+    );
+  };
+  const Block = ({ z }) => (
+    <div className="space-y-1">
+      {z.rows.map((n, ri) => (
+        <div key={ri} className={`flex gap-1 ${z.id === 'L' ? 'justify-end' : 'justify-start'}`}>
+          {Array.from({ length: n }, (_, i) => <Seat key={i} z={z} r={ri + 1} c={i + 1} vip={ri < (z.vip || 0)} />)}
+        </div>
+      ))}
+    </div>
+  );
+  const L = zones.find(z => z.id === 'L') || zones[0], R = zones.find(z => z.id === 'R') || zones[1];
+  const sheetA = sheet && byId.get(seatMap[sheet]);
+  const totalSeats = seatKeysInOrder(zones).length;
 
-  const count = st => attendees.filter(a => a.status === st).length;
-  const moveTo = (srcId, target) => {           // target: 사람 id(그 자리에 끼우기) 또는 'zone:X'(맨 뒤)
-    if (srcId == null || target == null || srcId === target) return;
-    patch(s => {
-      const src = s.attendees.find(x => x.id === srcId); if (!src) return {};
-      let tz, tIdx;
-      if (typeof target === 'string') { tz = target.slice(5); tIdx = null; }
-      else { const t = s.attendees.find(x => x.id === target); if (!t) return {}; tz = zoneOf(t); tIdx = target; }
-      const list = s.attendees.filter(x => zoneOf(x) === tz && x.id !== srcId).sort((x, y) => seatNo(x) - seatNo(y));
-      const at = tIdx == null ? list.length : list.findIndex(x => x.id === tIdx);
-      list.splice(at < 0 ? list.length : at, 0, src);
-      const ns = {}; list.forEach((x, i) => { ns[x.id] = `${tz}-${String(i + 1).padStart(2, '0')}`; });
-      const sz = zoneOf(src);
-      if (sz && sz !== tz) s.attendees.filter(x => zoneOf(x) === sz && x.id !== srcId).sort((x, y) => seatNo(x) - seatNo(y)).forEach((x, i) => { ns[x.id] = `${sz}-${String(i + 1).padStart(2, '0')}`; });
-      return { attendees: s.attendees.map(x => ns[x.id] ? { ...x, seat: ns[x.id] } : x) };
-    });
-    const a = attendees.find(x => x.id === srcId);
-    notify(`${a?.name || ''}님 자리를 옮겼습니다`);
+  const doAuto = async () => {
+    if (await askUser(`의전 순위대로 지정석 ${totalSeats}석을 자동 배정합니다.\n(불참 제외 · 1열 통로 쪽부터 우→좌 교대)\n지금 배정을 덮어씁니다. 계속할까요?`)) { applyProtocol(); notify('의전순으로 배정했습니다'); }
   };
-  const onSeat = (a) => {
-    if (!isAdmin) { setSheet({ id: a.id, ro: true }); return; }
-    if (mode === 'check') { setSheet({ id: a.id }); return; }
-    if (picked == null) setPicked(a.id); else if (picked === a.id) setPicked(null); else { moveTo(picked, a.id); setPicked(null); }
+  const doClear = async () => { if (await askUser('모든 좌석 배정을 비웁니다. 계속할까요?')) { Object.keys(seatMap).forEach(k => assignSeat(k, null)); notify('비웠습니다'); } };
+  const setRowStr = (zid, str) => {
+    const rows = str.split(',').map(x => parseInt(x.trim(), 10)).filter(n => n > 0 && n <= 20).slice(0, 8);
+    if (!rows.length) return;
+    setZones(zones.map(z => z.id === zid ? { ...z, rows } : z));
   };
-  // 마우스 끌기(노트북) — 자리 바꾸기 모드에서만
-  const onDown = (e, a) => { if (!isAdmin || mode !== 'move' || e.pointerType !== 'mouse') return; setDrag({ id: a.id, x: e.clientX, y: e.clientY, moved: false }); };
-  const onMove = (e) => {
-    if (!drag) return;
-    if (!drag.moved && Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 6) return;
-    if (!drag.moved) setDrag(d => ({ ...d, moved: true }));
-    const el = document.elementFromPoint(e.clientX, e.clientY)?.closest('[data-seat-id],[data-zone-end]');
-    setOver(el ? (el.dataset.seatId ? Number(el.dataset.seatId) : `zone:${el.dataset.zoneEnd}`) : null);
-  };
-  const onUp = () => { if (drag?.moved) { moveTo(drag.id, over); setPicked(null); } setDrag(null); setOver(null); };
-
-  const addZone = async () => {
-    const name = ((await askUser('새 구역 이름 (예: B)', true)) || '').trim().toUpperCase().replace(/[^A-Z0-9가-힣]/g, '');
-    if (!name) return; if (zones.includes(name)) return notify('이미 있는 구역입니다');
-    setLayout(l => ({ ...l, [name]: { cols: 10 }, _order: [...zones, name] }));
-  };
-  const moveZone = (z, d) => { const o = [...zones]; const i = o.indexOf(z); const j = i + d; if (j < 0 || j >= o.length) return; [o[i], o[j]] = [o[j], o[i]]; setLayout(l => ({ ...l, _order: o })); };
-  const setCols = (z, cols) => setLayout(l => ({ ...l, [z]: { ...(l[z] || {}), cols } }));
-  const removeZone = (z) => setLayout(l => { const n = { ...l }; delete n[z]; n._order = zones.filter(x => x !== z); return n; });
-  const pickedA = attendees.find(a => a.id === picked);
-  const sheetA = sheet && attendees.find(a => a.id === sheet.id);
 
   return (
-    <div className="space-y-3" onPointerMove={onMove} onPointerUp={onUp}>
-      {/* 상단 조작줄 */}
+    <div className="space-y-2">
       <div className="card p-3 space-y-2">
         <div className="flex flex-wrap items-center gap-2">
-          <h2 className="section-title"><MapPin className="w-4 h-4" />좌석 현황</h2>
-          <div className="relative flex-1 min-w-[140px] max-w-xs">
+          <h2 className="section-title"><MapPin className="w-4 h-4" />VIP 지정석</h2>
+          <span className="text-xs text-slate-500 tabular-nums">배정 {occ.length}/{totalSeats}석 · 도착 <b className="text-emerald-700">{arrived}</b></span>
+          <div className="relative flex-1 min-w-[120px] max-w-[220px] ml-auto">
             <Search className="w-3.5 h-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input value={q} onChange={e => setQ(e.target.value)} placeholder="이름으로 좌석 찾기" className="w-full border border-slate-300 rounded-md pl-7 pr-2 py-1.5 text-sm" />
+            <input value={q} onChange={e => setQ(e.target.value)} placeholder="이름으로 찾기" className="w-full border border-slate-300 rounded-md pl-7 pr-2 py-1.5 text-sm" />
           </div>
-          <div className="flex rounded-md border border-slate-300 overflow-hidden text-xs font-semibold">
-            <button onClick={() => setView('map')} className={`px-2.5 py-1.5 ${view === 'map' ? 'bg-slate-900 text-white' : 'bg-white text-slate-600'}`}>배치도</button>
-            <button onClick={() => setView('list')} className={`px-2.5 py-1.5 ${view === 'list' ? 'bg-slate-900 text-white' : 'bg-white text-slate-600'}`}>열별 명단</button>
-          </div>
-          {view === 'map' && (
-            <div className="flex items-center gap-1">
-              <button onClick={() => setSize(v => Math.max(40, v - 8))} className="btn btn-outline px-2">－</button>
-              <button onClick={() => setSize(v => Math.min(88, v + 8))} className="btn btn-outline px-2">＋</button>
-            </div>
-          )}
         </div>
         {isAdmin && (
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex rounded-md border border-indigo-300 overflow-hidden text-xs font-bold">
-              <button onClick={() => setMode('check')} className={`px-3 py-1.5 ${mode === 'check' ? 'bg-indigo-600 text-white' : 'bg-white text-indigo-700'}`}>상태 체크</button>
-              <button onClick={() => setMode('move')} className={`px-3 py-1.5 flex items-center gap-1 ${mode === 'move' ? 'bg-indigo-600 text-white' : 'bg-white text-indigo-700'}`}><ArrowUpDown className="w-3 h-3" />자리 바꾸기</button>
-            </div>
-            <button onClick={addZone} className="btn btn-outline"><Plus className="w-3 h-3" />구역 추가</button>
-            <span className="text-[11px] text-slate-500">{mode === 'check' ? '좌석을 누르면 도착 체크 창이 뜹니다.' : '옮길 사람을 누르고, 들어갈 자리를 누르세요. 노트북은 끌어 놓아도 됩니다.'}</span>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button onClick={doAuto} className="btn btn-primary">의전순 자동 배정</button>
+            <button onClick={doClear} className="btn btn-outline">전체 비우기</button>
+            <button onClick={() => setEditRows(v => !v)} className={`btn ${editRows ? 'btn-dark' : 'btn-outline'}`}>열 구성</button>
+            <span className="text-[11px] text-slate-500">빈 좌석을 누르면 배정, 배정된 좌석을 누르면 도착 체크·변경.</span>
           </div>
         )}
-        {/* 범례 */}
+        {editRows && isAdmin && (
+          <div className="flex flex-wrap gap-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs">
+            {[L, R].map(z => (
+              <label key={z.id} className="flex items-center gap-1.5">{z.name} 열별 좌석 수
+                <input defaultValue={z.rows.join(', ')} onBlur={e => setRowStr(z.id, e.target.value)} className="w-28 border border-slate-300 rounded px-2 py-1 bg-white" />
+              </label>
+            ))}
+            <span className="text-slate-500 w-full">쉼표로 열별 좌석 수를 적습니다(예: 6, 7, 8 = 1열 6석·2열 7석·3열 8석). 실제 홀과 다르면 여기서 맞추세요.</span>
+          </div>
+        )}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-600">
-          {['도착', '불참'].map(st => (
-            <span key={st} className="inline-flex items-center gap-1"><span className={`w-3.5 h-3.5 rounded border ${SEAT_TONE[st]}`} />{st} <b className="tabular-nums">{count(st)}</b></span>
-          ))}
-          <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-violet-600" />인사말씀</span>
-          {q && <span className="text-indigo-700 font-semibold">찾은 사람 {hit.length}명{hit[0] && ` · ${hit[0].name} ${hit[0].seat}`}</span>}
+          <span className="inline-flex items-center gap-1"><span className="w-3.5 h-3.5 rounded border-2 bg-emerald-600 border-emerald-700" />도착</span>
+          <span className="inline-flex items-center gap-1"><span className="w-3.5 h-3.5 rounded border-2 bg-white border-slate-500" />배정(도착 전)</span>
+          <span className="inline-flex items-center gap-1"><span className="w-3.5 h-3.5 rounded border-2 bg-rose-50 border-rose-300" />불참</span>
+          <span className="inline-flex items-center gap-1"><span className="w-3.5 h-3.5 rounded border-2 border-dashed bg-slate-50 border-slate-300" />빈 좌석</span>
+          <span className="inline-flex items-center gap-1"><span className="w-3.5 h-3.5 rounded ring-2 ring-rose-500" />1열 = VIP지정석</span>
         </div>
       </div>
 
-      {mode === 'move' && pickedA && (
-        <div className="sticky top-[104px] z-30 flex items-center gap-2 rounded-lg bg-indigo-600 text-white px-3 py-2 text-sm shadow-lg">
-          <ArrowUpDown className="w-4 h-4" /><b>{pickedA.name}</b> ({pickedA.seat}) 선택됨 — 들어갈 자리를 누르세요
-          <button onClick={() => setPicked(null)} className="ml-auto text-xs underline">취소</button>
+      <div className="card p-3 overflow-x-auto">
+        <div className="w-max mx-auto">
+          <div className="stage text-sm py-2 px-10">무 대 · LED SCREEN</div>
+          <div className="text-center my-1"><span className="inline-block text-[10px] font-bold text-white bg-violet-700 rounded px-2 py-0.5">VIP내빈</span></div>
+          <div className="flex items-start gap-5 justify-center">
+            <div><Block z={L} /><div className="text-center text-[10px] text-slate-400 mt-1">{L.name}</div></div>
+            <div className="self-stretch flex flex-col items-center justify-center text-[9px] text-slate-300 px-0.5"><span className="flex-1 border-l border-dashed border-slate-300" />통로<span className="flex-1 border-l border-dashed border-slate-300" /></div>
+            <div><Block z={R} /><div className="text-center text-[10px] text-slate-400 mt-1">{R.name}</div></div>
+          </div>
+          <div className="text-center text-[10px] text-slate-400 mt-2">객석 뒤쪽(일반석은 자유석) · 좌석 번호는 각 블록 왼쪽부터 1번</div>
+        </div>
+      </div>
+
+      {/* 배정 창 */}
+      {pickFor && <SeatPicker seatKeyStr={pickFor} attendees={attendees} seatMap={seatMap} onClose={() => setPickFor(null)}
+        onPick={(id) => { assignSeat(pickFor, id); setPickFor(null); notify(`${byId.get(id)?.name || ''}님을 ${seatLabel(pickFor)}에 배정했습니다`); }} />}
+
+      {/* 좌석 상세 창 */}
+      {sheet && sheetA && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-3" onClick={() => setSheet(null)}>
+          <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl p-4 w-full max-w-sm shadow-2xl">
+            <div className="flex items-start gap-2">
+              <div className="min-w-0"><div className="text-xl font-bold">{sheetA.name} <span className="text-sm font-medium text-slate-600">{sheetA.position}</span></div>
+                <div className="text-xs text-slate-500 truncate">{sheetA.organization} · <b>{seatLabel(sheet)}</b></div></div>
+              <span className="ml-auto shrink-0"><StatusChip status={sheetA.status} /></span>
+            </div>
+            {isAdmin ? (
+              <div className="grid grid-cols-2 gap-2 mt-3">
+                <button onClick={() => { setStatus(sheetA.id, PRESENT.includes(sheetA.status) ? '미도착' : '도착'); }} className={`col-span-2 rounded-xl border-2 py-3 text-base font-bold ${PRESENT.includes(sheetA.status) ? 'bg-emerald-600 border-emerald-600 text-white' : 'bg-white border-slate-300 text-slate-600'}`}>✅ {PRESENT.includes(sheetA.status) ? '도착 완료 (누르면 취소)' : '도착'}</button>
+                <button onClick={() => setStatus(sheetA.id, '불참')} className="btn btn-outline justify-center py-2 text-rose-600 border-rose-300">불참</button>
+                <button onClick={() => { assignSeat(sheet, null); setSheet(null); }} className="btn btn-outline justify-center py-2">자리 비우기</button>
+                <button onClick={() => { setPickFor(sheet); setSheet(null); }} className="btn btn-outline justify-center py-2">다른 분 배정</button>
+                <button onClick={() => setSheet(null)} className="btn btn-dark justify-center py-2">닫기</button>
+              </div>
+            ) : <button onClick={() => setSheet(null)} className="btn btn-dark w-full justify-center mt-3 py-2">닫기</button>}
+          </div>
         </div>
       )}
+    </div>
+  );
+}
 
-      <div className="stage text-sm py-2.5">무 대 STAGE</div>
-      <div className="text-center text-[11px] text-slate-400 -mt-1">무대에서 내려다보아 1열 가운데가 최상석 · 「내빈 관리 → 의전순 적용」으로 자동 배치</div>
-
-      {zones.map((z, zi) => {
-        const list = attendees.filter(a => zoneOf(a) === z).sort((x, y) => seatNo(x) - seatNo(y));
-        const cols = colsOf(z);
-        const rows = []; for (let i = 0; i < list.length; i += cols) rows.push(list.slice(i, i + cols));
-        const grade = list[0]?.grade || 'VVIP'; const gs = GRADE_STYLES[grade] || GRADE_STYLES.VVIP;
-        const present = list.filter(a => PRESENT.includes(a.status)).length;
-        return (
-          <div key={z} className="card overflow-hidden">
-            <div className={`flex flex-wrap items-center gap-2 px-3 py-2 border-b ${gs.light} ${gs.border}`}>
-              <span className={`px-2 py-0.5 rounded text-[11px] font-bold text-white ${gs.bg}`}>{grade}</span>
-              <span className="text-sm font-bold">{z} 구역</span>
-              <span className="text-xs text-slate-600 tabular-nums">도착 <b className="text-emerald-700">{present}</b> / {list.length}석</span>
-              <div className="flex-1 h-1.5 bg-white rounded-full overflow-hidden min-w-[60px] max-w-[160px]"><div className="h-full bg-emerald-500" style={{ width: `${list.length ? present / list.length * 100 : 0}%` }} /></div>
-              {isAdmin && (
-                <div className="ml-auto flex items-center gap-1">
-                  <select value={cols} onChange={e => setCols(z, Number(e.target.value))} className="text-[11px] border border-slate-300 rounded px-1 py-0.5 bg-white" title="한 열의 좌석 수">{[4, 5, 6, 7, 8, 10, 12, 15].map(c => <option key={c} value={c}>한 열 {c}석</option>)}</select>
-                  <button onClick={() => moveZone(z, -1)} disabled={zi === 0} className="px-1 text-slate-500 disabled:opacity-30">▲</button>
-                  <button onClick={() => moveZone(z, 1)} disabled={zi === zones.length - 1} className="px-1 text-slate-500 disabled:opacity-30">▼</button>
-                  {!list.length && <button onClick={() => removeZone(z)} className="text-slate-400 hover:text-rose-600"><X className="w-3.5 h-3.5" /></button>}
-                </div>
-              )}
-            </div>
-
-            {view === 'map' ? (
-              <div ref={el => { if (el && !el.dataset.centered) { el.dataset.centered = '1'; requestAnimationFrame(() => { el.scrollLeft = (el.scrollWidth - el.clientWidth) / 2; }); } }} className="overflow-x-auto px-2 py-3" style={{ touchAction: drag ? 'none' : 'auto' }}>
-                {cols * (size + 6) + 40 > (typeof window !== 'undefined' ? window.innerWidth - 40 : 9999) && <div className="text-[11px] text-slate-400 mb-1 sm:hidden">← 옆으로 밀어서 보세요 · 핸드폰은 「열별 명단」이 더 편합니다</div>}
-                <div className="w-max mx-auto space-y-1.5">
-                  {rows.map((r, ri) => (
-                    <div key={ri} className="flex items-center gap-1.5">
-                      <span className="w-8 shrink-0 text-right text-[11px] font-bold text-slate-400 tabular-nums">{ri + 1}열</span>
-                      {r.map(a => {
-                        const isHit = hitIds.has(a.id); const isPick = picked === a.id; const isOver = over === a.id;
-                        return (
-                          <button key={a.id} data-seat-id={a.id} onClick={() => !drag?.moved && onSeat(a)} onPointerDown={e => onDown(e, a)}
-                            title={`${a.seat} ${a.name} ${a.position} · ${a.status}`}
-                            style={{ width: size, height: size }}
-                            className={`relative shrink-0 rounded-lg border-2 flex flex-col items-center justify-center leading-tight select-none transition ${SEAT_TONE[a.status]} ${isPick ? 'ring-4 ring-indigo-500 scale-105' : ''} ${isOver ? 'ring-4 ring-indigo-400' : ''} ${isHit ? 'ring-4 ring-fuchsia-500 animate-pulse' : ''} ${drag?.id === a.id && drag.moved ? 'opacity-40' : ''} ${mode === 'move' && isAdmin ? 'cursor-grab' : 'cursor-pointer'} hover:brightness-95`}>
-                            <span className="text-[9px] font-mono opacity-70">{a.seat.split('-')[1]}</span>
-                            <span className="font-bold" style={{ fontSize: Math.max(11, Math.round(size / 4.2)) }}>{a.name.replace(/[()]/g, '').slice(0, size >= 64 ? 4 : 3)}</span>
-                            {size >= 64 && <span className="text-[9px] opacity-80 truncate max-w-full px-0.5">{a.position}</span>}
-                            {a.speech && <span className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-violet-600 ring-1 ring-white" />}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ))}
-                  {isAdmin && mode === 'move' && (
-                    <button data-zone-end={z} onClick={() => { if (picked != null) { moveTo(picked, `zone:${z}`); setPicked(null); } }}
-                      className={`ml-10 mt-1 px-3 py-2 rounded-lg border-2 border-dashed text-xs ${picked != null || over === `zone:${z}` ? 'border-indigo-400 text-indigo-700 bg-indigo-50' : 'border-slate-300 text-slate-400'}`}>
-                      + {z} 구역 맨 뒤에 넣기
-                    </button>
-                  )}
-                  {!list.length && <div className="text-xs text-slate-400 py-4 px-6">빈 구역입니다. 자리 바꾸기로 사람을 옮겨 오세요.</div>}
-                </div>
-              </div>
-            ) : (
-              <div className="divide-y divide-slate-100">
-                {rows.map((r, ri) => (
-                  <div key={ri} className="flex gap-2 px-3 py-2">
-                    <span className="w-9 shrink-0 text-xs font-bold text-slate-400 pt-1 tabular-nums">{ri + 1}열</span>
-                    <div className="flex flex-wrap gap-1.5">
-                      {r.map(a => (
-                        <button key={a.id} data-seat-id={a.id} onClick={() => onSeat(a)}
-                          className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-sm ${SEAT_TONE[a.status]} ${hitIds.has(a.id) ? 'ring-2 ring-fuchsia-500' : ''} ${picked === a.id ? 'ring-2 ring-indigo-500' : ''}`}>
-                          <span className="text-[10px] font-mono opacity-70">{a.seat.split('-')[1]}</span><b>{a.name}</b><span className="text-[11px] opacity-80">{a.position}</span>
-                          {a.speech && <Mic2 className="w-3 h-3" />}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        );
-      })}
-
-      {sheetA && (sheet.ro
-        ? <div className="fixed inset-0 bg-black/40 z-50 flex items-end sm:items-center justify-center p-3" onClick={() => setSheet(null)}>
-            <div className="bg-white rounded-2xl p-4 w-full max-w-sm shadow-2xl" onClick={e => e.stopPropagation()}>
-              <div className="text-xl font-bold">{sheetA.name} <span className="text-sm font-medium text-slate-600">{sheetA.position}</span></div>
-              <div className="text-sm text-slate-500 mb-2">{sheetA.organization} · <span className="font-mono">{sheetA.seat}</span></div>
-              <div className="flex items-center gap-2"><StatusChip status={sheetA.status} />{sheetA.arrivalTime && <span className="text-xs text-slate-500">도착 {sheetA.arrivalTime}</span>}{sheetA.speech && <span className="text-xs text-violet-700 font-semibold">{sheetA.speechType}</span>}</div>
-              <button onClick={() => setSheet(null)} className="btn btn-dark w-full justify-center mt-3 py-2">닫기</button>
-            </div>
-          </div>
-        : <ActionSheet a={sheetA} onClose={() => setSheet(null)} setStatus={setStatus} toggleSpeech={toggleSpeech} toggleIntro={toggleIntro} updateAttendee={updateAttendee} />)}
+function SeatPicker({ seatKeyStr, attendees, seatMap, onClose, onPick }) {
+  const [q, setQ] = useState('');
+  const qq = q.trim();
+  const seatOf = {}; Object.entries(seatMap).forEach(([k, id]) => { seatOf[id] = seatLabel(k); });
+  const list = [...attendees].sort(byRank).filter(a => a.status !== '불참').filter(a => !qq || (a.name + a.organization + a.position).includes(qq)).slice(0, 30);
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-start sm:items-center justify-center p-3 pt-14 sm:pt-3" onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl p-4 w-full max-w-md shadow-2xl max-h-[85vh] overflow-y-auto">
+        <div className="flex items-center gap-2 mb-2"><h3 className="font-bold text-sm">{seatLabel(seatKeyStr)} 좌석에 배정</h3><button onClick={onClose} className="ml-auto text-slate-400"><X className="w-5 h-5" /></button></div>
+        <input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="이름·소속 검색 (의전순 표시)" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mb-2" />
+        <div className="divide-y divide-slate-100 rounded-lg border border-slate-200 overflow-hidden">
+          {list.map(a => (
+            <button key={a.id} onClick={() => onPick(a.id)} className="w-full text-left px-2.5 py-2 flex items-center gap-2 hover:bg-slate-50">
+              <span className="shrink-0 w-7 text-center text-[11px] font-bold text-indigo-600 tabular-nums">{rankOf(a) === 999 ? '-' : rankOf(a)}</span>
+              <span className="min-w-0 flex-1"><b className="text-[14px]">{a.name}</b> <span className="text-xs text-slate-600">{a.position}</span><span className="block text-[11px] text-slate-400 truncate">{a.organization}</span></span>
+              {seatOf[a.id] && <span className="shrink-0 text-[10px] text-amber-600 font-bold">{seatOf[a.id]} → 이동</span>}
+              <StatusChip status={a.status} small />
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
@@ -1089,7 +988,7 @@ function ManageView({ applyProtocol, onQuickAdd, attendees, updateAttendee, addA
   const ST_ORDER = { '도착': 0, '착석': 0, '미도착': 1, '불참': 3, '퇴장': 4 };
   const sorter = { rank: byRank, reg: (x, y) => x.id - y.id, seat: (x, y) => (x.seat || '~').localeCompare(y.seat || '~'), name: (x, y) => x.name.localeCompare(y.name, 'ko'), status: (x, y) => ST_ORDER[x.status] - ST_ORDER[y.status] || byRank(x, y) }[sort];
   const shown = attendees.filter(a => !q.trim() || `${a.name}${a.organization}${a.position}${a.category}${a.seat}`.includes(q.trim())).sort(sorter);
-  const doProtocol = async () => { if (await askUser('의전 순위대로 맞춥니다.\n· 내빈 소개 순서를 의전순으로\n· 인사말씀 순서를 의전순으로\n· 좌석을 구역별로 1열 가운데부터(가운데 → 좌우 교대)\n\n지금 순서와 좌석이 바뀝니다. 계속할까요?')) { applyProtocol(); notify('의전순으로 맞췄습니다'); } };
+  const doProtocol = async () => { if (await askUser('의전 순위대로 맞춥니다.\n· 내빈 소개·인사말씀 순서를 의전순으로\n· VIP지정석을 1열 통로 쪽부터 자동 배정(불참 제외)\n\n지금 순서와 좌석 배정이 바뀝니다. 계속할까요?')) { applyProtocol(); notify('의전순으로 맞췄습니다'); } };
   const [showPaste, setShowPaste] = useState(false);
   const cell = 'border border-transparent hover:border-slate-300 focus:border-blue-400 rounded px-1 py-0.5 text-xs w-full bg-transparent';
 
@@ -1111,7 +1010,6 @@ function ManageView({ applyProtocol, onQuickAdd, attendees, updateAttendee, addA
     const a = document.createElement('a'); a.href = url; a.download = `내빈현황_${new Date().toISOString().slice(0, 10)}.csv`; a.click();
   };
   const resetStatus = async () => { if (await askUser('모든 내빈의 도착·불참 체크를 지웁니다. 계속할까요?')) patch(s => ({ attendees: s.attendees.map(a => ({ ...a, status: '미도착', arrivalTime: null, seatedTime: null })) })); };
-  const reseat = async () => { if (await askUser('현재 목록 순서대로 좌석번호(A-01~)를 다시 매깁니다. 계속할까요?')) patch(s => ({ attendees: s.attendees.map((a, i) => ({ ...a, seat: `A-${String(i + 1).padStart(2, '0')}` })) })); };
 
   return (
     <div className="card p-2 sm:p-3">
@@ -1125,7 +1023,6 @@ function ManageView({ applyProtocol, onQuickAdd, attendees, updateAttendee, addA
           <div className={`${more ? 'flex' : 'hidden'} md:flex flex-wrap gap-1 w-full md:w-auto`}>
             <button onClick={() => setShowPaste(v => !v)} className="btn btn-outline"><Upload className="w-3 h-3" />엑셀 붙여넣기</button>
             <button onClick={exportCsv} className="btn btn-outline"><Download className="w-3 h-3" />엑셀(CSV) 저장</button>
-            <button onClick={reseat} className="btn btn-outline">좌석 재부여</button>
             <button onClick={resetStatus} className="text-xs px-2 py-1.5 rounded border border-rose-300 text-rose-600 flex items-center gap-1"><RotateCcw className="w-3 h-3" />상태 초기화</button>
           </div>
         </div>
@@ -1151,7 +1048,7 @@ function ManageView({ applyProtocol, onQuickAdd, attendees, updateAttendee, addA
               <span className="shrink-0 text-[11px] font-bold text-indigo-600 tabular-nums w-5">{rankOf(a) === 999 ? '-' : rankOf(a)}</span>
               <span className="shrink-0 text-[16px] font-bold leading-tight">{a.name}</span>
               <span className="shrink-0 text-[12px] text-slate-700">{a.position}</span>
-              <span className="min-w-0 truncate text-[11px] text-slate-400">{a.organization} · {a.seat || '-'}</span>
+              <span className="min-w-0 truncate text-[11px] text-slate-400"><b className="text-slate-600">{a.grade}</b>{a.rsvp === 'T' ? <span className="text-amber-600"> △</span> : a.rsvp === 'X' ? <span className="text-rose-500"> ✕</span> : a.rsvp === '' ? ' –' : ''} · {a.organization}{a.seat ? ` · ${a.seat}` : ''}</span>
               <span className="ml-auto shrink-0"><StatusChip status={a.status} small /></span>
               <button onClick={() => setEdit(a.id)} className="shrink-0 p-1 text-slate-400"><Pencil className="w-3.5 h-3.5" /></button>
             </div>
@@ -1314,30 +1211,60 @@ ${attendees.filter(a => a.status === '불참').map(a => ` · ${honor(a)} (${a.st
 // =====================================================================
 // 긴급 내빈 추가 (갑작스러운 참석)
 // =====================================================================
-function QuickAddModal({ onClose, attendees, onAdd }) {
-  const zones = [...new Set(attendees.map(a => (a.seat || '').split('-')[0]).filter(Boolean))];
-  const nextSeat = (z) => { const n = Math.max(0, ...attendees.filter(a => a.seat.startsWith(z + '-')).map(a => Number(a.seat.split('-')[1]) || 0)); return `${z}-${String(n + 1).padStart(2, '0')}`; };
-  const [f, setF] = useState({ rank: Math.max(0, ...attendees.map(a => rankOf(a)).filter(r => r < 999)) + 1, name: '', position: '', organization: '', category: '긴급 추가', grade: 'VVIP', zone: zones[0] || 'A', status: '도착', speech: false, speechType: '축사', note: '현장 추가' });
-  const inp = 'w-full border border-slate-300 rounded-md px-2 py-1.5 text-sm';
-  const submit = (e) => { e.preventDefault(); if (!f.name.trim()) return; const { zone, ...rest } = f; onAdd({ ...rest, seat: nextSeat(zone), arrivalTime: f.status === '미도착' ? null : nowHM(), seatedTime: null, intro: true }); };
+function QuickAddModal({ onClose, attendees, onAdd, onAddRoster }) {
+  const [q, setQ] = useState('');
+  const [manual, setManual] = useState(false);
+  const [f, setF] = useState({ name: '', position: '', organization: '', grade: '기타', rank: 999, speech: false, speechType: '축사' });
+  const inp = 'w-full border border-slate-300 rounded-md px-2 py-2 text-sm';
+  const qq = q.trim().replace(/\s/g, '');
+  const hits = qq.length >= 1 ? ROSTER.map((r, i) => ({ r, i })).filter(({ r }) => (r[4] + r[2] + r[3]).replace(/\s/g, '').includes(qq)).slice(0, 10) : [];
+  const inList = new Map(attendees.filter(a => a.rid != null && a.rid >= 0).map(a => [a.rid, a]));
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <form onSubmit={submit} onClick={e => e.stopPropagation()} className="bg-white rounded-xl p-5 w-full max-w-md shadow-2xl">
-        <div className="flex items-center gap-2 mb-3"><UserPlus className="w-4 h-4 text-amber-500" /><h3 className="font-bold text-sm">긴급 내빈 추가</h3><span className="text-[10px] text-slate-400">갑자기 오신 분을 바로 등록</span><button type="button" onClick={onClose} className="ml-auto text-slate-400"><X className="w-4 h-4" /></button></div>
-        <div className="grid grid-cols-2 gap-2">
-          <label className="col-span-2"><span className="text-[11px] text-slate-500">성명 *</span><input autoFocus className={inp} value={f.name} onChange={e => setF({ ...f, name: e.target.value })} /></label>
-          <label><span className="text-[11px] text-slate-500">직위</span><input className={inp} value={f.position} onChange={e => setF({ ...f, position: e.target.value })} /></label>
-          <label><span className="text-[11px] text-slate-500">소속</span><input className={inp} value={f.organization} onChange={e => setF({ ...f, organization: e.target.value })} /></label>
-          <label><span className="text-[11px] text-slate-500">구분</span><input className={inp} value={f.category} onChange={e => setF({ ...f, category: e.target.value })} list="cats" /><datalist id="cats">{[...new Set(attendees.map(a => a.category))].map(c => <option key={c} value={c} />)}</datalist></label>
-          <label><span className="text-[11px] text-slate-500">등급</span><select className={inp} value={f.grade} onChange={e => setF({ ...f, grade: e.target.value })}>{GRADES.map(g => <option key={g}>{g}</option>)}</select></label>
-          <label><span className="text-[11px] text-slate-500">좌석 구역</span><select className={inp} value={f.zone} onChange={e => setF({ ...f, zone: e.target.value })}>{(zones.length ? zones : ['A']).map(z => <option key={z} value={z}>{z} 구역 → {nextSeat(z)}</option>)}</select></label>
-          <label><span className="text-[11px] text-slate-500">의전 순위</span><input type="number" min="1" className={inp} value={f.rank} onChange={e => setF({ ...f, rank: Number(e.target.value) })} /></label>
-          <label><span className="text-[11px] text-slate-500">현재 상태</span><select className={inp} value={f.status} onChange={e => setF({ ...f, status: e.target.value })}>{STATUSES.filter(x => x !== '미도착').map(st => <option key={st}>{st}</option>)}</select></label>
-          <label className="col-span-2 flex items-center gap-2 text-xs mt-1"><input type="checkbox" checked={f.speech} onChange={e => setF({ ...f, speech: e.target.checked })} className="accent-violet-600" />인사말씀 대상
-            {f.speech && <select className="text-xs border border-violet-300 rounded px-1 py-0.5" value={f.speechType} onChange={e => setF({ ...f, speechType: e.target.value })}>{SPEECH_TYPES.map(t => <option key={t}>{t}</option>)}</select>}</label>
-        </div>
-        <div className="flex gap-2 mt-4"><button className="btn btn-primary flex-1 justify-center py-2">추가</button><button type="button" onClick={onClose} className="btn btn-outline">취소</button></div>
-      </form>
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-start sm:items-center justify-center p-3 pt-14 sm:pt-3" onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl p-4 w-full max-w-md shadow-2xl max-h-[85vh] overflow-y-auto">
+        <div className="flex items-center gap-2 mb-2"><UserPlus className="w-4 h-4 text-amber-500" /><h3 className="font-bold text-sm">내빈 추가 · 도착 등록</h3><button type="button" onClick={onClose} className="ml-auto text-slate-400"><X className="w-5 h-5" /></button></div>
+        {!manual && (
+          <>
+            <div className="relative">
+              <Search className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="이름을 입력하세요 (초청명단 1,049명 검색)" className="w-full border-2 border-slate-300 rounded-lg pl-8 pr-2 py-2.5 text-base" />
+            </div>
+            <div className="mt-2 divide-y divide-slate-100 rounded-lg border border-slate-200 overflow-hidden empty:border-0">
+              {hits.map(({ r, i }) => {
+                const ex = inList.get(i); const gs = GRADE_STYLES[r[0]] || GRADE_STYLES['기타'];
+                return (
+                  <button key={i} onClick={() => onAddRoster(i)} className="w-full text-left px-2.5 py-2 flex items-center gap-2 hover:bg-slate-50 active:bg-slate-100">
+                    <span className={`shrink-0 w-8 text-center text-[10px] font-bold text-white rounded py-0.5 ${gs.bg}`}>{r[0]}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-baseline gap-1.5"><b className="text-[15px]">{r[4]}</b><span className="text-xs text-slate-600 truncate">{r[3]}</span></span>
+                      <span className="block text-[11px] text-slate-400 truncate">{r[2]}</span>
+                    </span>
+                    <span className="shrink-0 text-right">
+                      <span className={`block text-[10px] font-semibold ${r[5] === 'O' ? 'text-emerald-600' : r[5] === 'X' ? 'text-rose-500' : r[5] === 'T' ? 'text-amber-600' : 'text-slate-400'}`}>{MARK_TXT[r[5]]}</span>
+                      {ex ? <StatusChip status={ex.status} small /> : <span className="text-[10px] text-indigo-600 font-bold">누르면 도착 ›</span>}
+                    </span>
+                  </button>
+                );
+              })}
+              {qq && !hits.length && <div className="px-3 py-4 text-center text-xs text-slate-400">초청명단에서 찾지 못했습니다</div>}
+            </div>
+            {!qq && <p className="mt-2 text-[11px] text-slate-500 leading-relaxed">갑자기 오신 분도 이름만 치면 됩니다. 사전 불참(✕)·미확인 인사도 전체 초청명단에서 찾아 소속·직위가 채워진 채 도착 처리됩니다.</p>}
+            <button onClick={() => { setManual(true); setF(v => ({ ...v, name: q.trim() })); }} className="mt-2 w-full btn btn-outline justify-center py-2.5">명단에 없는 분 → 새로 입력</button>
+          </>
+        )}
+        {manual && (
+          <form onSubmit={e => { e.preventDefault(); if (!f.name.trim()) return; onAdd({ ...f }); }} className="grid grid-cols-2 gap-2">
+            <label className="col-span-2"><span className="text-[11px] text-slate-500">성명 *</span><input autoFocus className={inp} value={f.name} onChange={e => setF({ ...f, name: e.target.value })} /></label>
+            <label><span className="text-[11px] text-slate-500">직위</span><input className={inp} value={f.position} onChange={e => setF({ ...f, position: e.target.value })} /></label>
+            <label><span className="text-[11px] text-slate-500">소속</span><input className={inp} value={f.organization} onChange={e => setF({ ...f, organization: e.target.value })} /></label>
+            <label><span className="text-[11px] text-slate-500">등급</span><select className={inp} value={f.grade} onChange={e => setF({ ...f, grade: e.target.value })}>{GRADES.map(g => <option key={g}>{g}</option>)}</select></label>
+            <label><span className="text-[11px] text-slate-500">의전 순위</span><input type="number" min="1" className={inp} value={f.rank} onChange={e => setF({ ...f, rank: Number(e.target.value) })} /></label>
+            <label className="col-span-2 flex items-center gap-2 text-xs mt-1"><input type="checkbox" checked={f.speech} onChange={e => setF({ ...f, speech: e.target.checked })} className="accent-violet-600" />인사말씀 대상
+              {f.speech && <select className="text-xs border border-violet-300 rounded px-1 py-0.5" value={f.speechType} onChange={e => setF({ ...f, speechType: e.target.value })}>{SPEECH_TYPES.map(t => <option key={t}>{t}</option>)}</select>}</label>
+            <div className="col-span-2 flex gap-2 mt-2"><button className="btn btn-primary flex-1 justify-center py-2.5">도착으로 추가</button><button type="button" onClick={() => setManual(false)} className="btn btn-outline">← 검색으로</button></div>
+          </form>
+        )}
+      </div>
     </div>
   );
 }
@@ -1395,7 +1322,7 @@ function EditModal({ a, onClose, updateAttendee, onDelete }) {
           {F({ k: 'position', label: '직위' })}
           {F({ k: 'organization', label: '소속' })}
           {F({ k: 'category', label: '구분' })}
-          {F({ k: 'seat', label: '좌석 (예: A-05)', mono: true })}
+          {F({ k: 'seat', label: '좌석 표시(배정은 좌석 탭에서)', mono: true })}
           <label className="block"><span className="text-[11px] text-slate-500">등급</span><select className={inp} value={a.grade} onChange={e => updateAttendee(a.id, { grade: e.target.value })}>{GRADES.map(g => <option key={g}>{g}</option>)}</select></label>
           <label className="block"><span className="text-[11px] text-slate-500">인사말씀 종류</span><select className={inp} value={a.speechType} onChange={e => updateAttendee(a.id, { speechType: e.target.value })}>{SPEECH_TYPES.map(t => <option key={t}>{t}</option>)}</select></label>
           <label className="block"><span className="text-[11px] text-slate-500">의전 순위 (작을수록 상석)</span><input type="number" min="1" className={inp} value={rankOf(a) === 999 ? '' : rankOf(a)} onChange={e => updateAttendee(a.id, { rank: e.target.value === '' ? null : Number(e.target.value) })} /></label>
@@ -1419,7 +1346,7 @@ const buildKakaoReport = ({ stats, attendees, event, speechOrder, kind }) => {
   const who = a => `${a.name} ${a.position}(${a.organization})`;
   const title = { all: '내빈 현황', present: '참석 내빈', absent: '불참 내빈', speech: '인사말씀' }[kind];
   const head = [`[${event.name} ${title}]`, `${stamp} 기준`, ''];
-  const sum = [`■ 초청 ${stats.total}명 · 참석 ${stats.present}명(${stats.rate}%) · 불참 ${stats.absent}명`];
+  const sum = [`■ 예정 ${stats.total}명 · 참석 ${stats.present}명(${stats.rate}%) · 불참 ${stats.absent}명`];
   const pBlock = [`■ 참석 ${present.length}명`, ...(present.length ? present.map((a, i) => ` ${i + 1}. ${who(a)}`) : [' · 없음'])];
   const aBlock = [`■ 불참 ${absent.length}명`, ...(absent.length ? absent.map((a, i) => ` ${i + 1}. ${who(a)}`) : [' · 없음'])];
   const sBlock = [`■ 인사말씀 ${stats.speakersPresent}/${stats.speakers}명 도착`, ...speakers.map((a, i) => ` ${i + 1}) ${a.speechType} ${a.name} ${a.position}${PRESENT.includes(a.status) ? ' — 도착 ✔' : a.status === '불참' ? ' — 불참' : ''}`)];
@@ -1500,7 +1427,7 @@ function GuideView({ state, stats, sync, isAdmin }) {
       </div>
 
       <GuideSec id="about" title="1. 이 플랫폼은" open>
-        <p>AI EXPO 「MARS 2026」 개막식(2026. 11. 3.) <b>내빈 도착 확인 · 내빈 소개 · 인사말씀 순서</b>를 여러 사람이 핸드폰으로 함께 관리하는 화면입니다.</p>
+        <p>AI EXPO 「MARS 2026」 개막식(2026. 11. 3.) <b>내빈 도착 확인 · 내빈 소개 · 인사말씀 순서 · VIP지정석</b>을 여러 사람이 핸드폰으로 함께 관리하는 화면입니다. 초청명단 1,049명 중 참석(○)·미정(△) 회신 인사와 VIP 등급 전원인 <b>예정 명단 약 182명</b>이 화면에 보이고, 나머지는 「추가」에서 이름만 치면 올라옵니다.</p>
         <ul className="list-disc pl-5 space-y-0.5">
           <li><b>링크 하나로 공유</b>: 설치·회원가입 없이 주소만 열면 됩니다. 핸드폰·태블릿·노트북 모두 같은 자료를 봅니다(4초 간격 갱신).</li>
           <li><b>관리자 / 조회 구분</b>: 비밀번호를 넣은 사람만 체크·수정할 수 있고, 나머지는 보기만 합니다.</li>
@@ -1518,7 +1445,8 @@ function GuideView({ state, stats, sync, isAdmin }) {
           <li>오른쪽 위 <b>「관리자」</b> → 비밀번호 입력. 「이 기기에서 계속 관리자로 유지」를 켜 두면 다시 열어도 유지됩니다.</li>
           <li><b>도착 체크</b>: 현황판에서 이름 카드를 누름 → 「도착」. 내빈 관리 탭에서는 카드의 「도착」 단추를 바로 눌러도 됩니다. 다시 누르면 취소.</li>
           <li><b>불참</b>: 체크 창 또는 내빈 관리의 「불참」. 잘못 눌렀으면 「초기화」.</li>
-          <li><b>갑자기 오신 분</b>: 머리글 <b>「추가」</b> → 이름·직위·소속만 넣으면 도착 상태로 등록, 좌석 자동 배정.</li>
+          <li><b>갑자기 오신 분</b>: 머리글 <b>「추가」</b> → 이름 검색 → 초청명단 1,049명에서 소속·직위가 채워진 채 도착 등록. 명단에 없으면 「새로 입력」.</li>
+          <li><b>VIP지정석</b>: 좌석 탭에서 「의전순 자동 배정」 또는 빈 좌석을 눌러 직접 배정. 1열(빨간 테두리)이 지정석입니다. 열별 좌석 수는 「열 구성」에서 실제 홀에 맞게 바꿉니다.</li>
           <li><b>인사말씀 지정</b>: 체크 창의 「인사말씀」 또는 인사말씀·소개 탭의 「대상 추가」. 순서는 줄을 누르고 → 들어갈 자리를 누르면 바뀝니다.</li>
           <li><b>인쇄</b>: 현황판 「인사말씀 인쇄」(노트북 크롬 권장). 도착한 사람만 멘트에 들어가고, 도착 체크가 안 된 대상은 아래에 따로 표시됩니다.</li>
           <li><b>카톡 보고</b>: 머리글 「보고」 → 전체·참석·불참·인사말씀 중 선택 → 「카톡으로 보내기」 또는 「복사」 후 대화방에 붙여넣기.</li>
