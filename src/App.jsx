@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Users, Crown, MapPin, Clock, BarChart3, Mic2, FileText, Bell, X, Lock, Unlock, Settings, Copy, Plus, Trash2, GripVertical, Download, Upload, RotateCcw, ListOrdered, Eye, LogIn, BookOpen, Printer, UserPlus, MessageCircle, Pencil, Search, Share2, ArrowUpDown } from 'lucide-react';
 import { ROSTER } from './roster.js';
+import { photoOf, PHOTO_COUNT } from './photos.js';
 
 // =====================================================================
 // 공공행사 내빈 소개·인사말씀 운영 플랫폼 (AI EXPO 「MARS 2026」 개막식)
@@ -8,7 +9,7 @@ import { ROSTER } from './roster.js';
 // =====================================================================
 
 const STORE_KEY = 'mars-vip-platform-v2';
-const APP_VERSION = '4.1.1';
+const APP_VERSION = '4.2.0';
 
 // ---------- 초기 자료 ----------
 const DEFAULT_EVENT = {
@@ -192,6 +193,8 @@ const copyText = async (text, notify, fallbackId) => {
 const verNum = v => String(v || '0').split('.').map(Number).reduce((acc, n) => acc * 1000 + (n || 0), 0);
 const lsSafe = { get: (k, d) => { try { return localStorage.getItem(k) ?? d; } catch { return d; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch {} } };
 const honor = (a) => `${a.organization} ${a.name} ${a.position}님`;
+// 내빈 사진(있을 때만 표시). size: 픽셀 너비, 세로는 4:5
+const Avatar = ({ a, size = 28, cls = '' }) => { const src = photoOf(a); if (!src) return null; return <img src={src} alt="" width={size} height={Math.round(size * 1.25)} loading="lazy" className={`shrink-0 rounded object-cover bg-slate-200 ring-1 ring-black/10 ${cls}`} style={{ width: size, height: Math.round(size * 1.25) }} />; };
 
 // =====================================================================
 // 메인
@@ -558,7 +561,7 @@ function BoardView({ attendees, stats, program, isAdmin, setStatus, toggleSpeech
             <div className="flex items-center gap-1.5 mr-1 shrink-0"><Bell className="w-3.5 h-3.5 animate-pulse" /><span className="text-xs font-bold">도착 내빈</span><span className="text-[10px] bg-white/25 px-1.5 py-0.5 rounded">{present.length}/{stats.total}</span></div>
             {present.map(a => (
               <span key={a.id} title={`${honor(a)} · ${a.status}`} className="inline-flex items-center gap-1 bg-white/15 border border-white/20 rounded px-1.5 py-0.5 text-[11px] leading-4 whitespace-nowrap">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-300" />
+                {photoOf(a) ? <Avatar a={a} size={14} cls="ring-white/40" /> : <span className="w-1.5 h-1.5 rounded-full bg-emerald-300" />}
                 <span className="font-semibold">{a.name}</span><span className="text-white/75">{a.position}</span>
                 {a.speech && <Mic2 className="w-2.5 h-2.5 text-amber-200" />}
                 <span className="text-white/60 font-mono">{a.seatedTime || a.arrivalTime}</span>
@@ -602,6 +605,7 @@ function BoardView({ attendees, stats, program, isAdmin, setStatus, toggleSpeech
                   return (
                     <div key={a.id} onClick={() => isAdmin && setSheet(a.id)} className={`rounded-md border border-slate-200 border-l-4 pl-2 pr-2 ${big ? 'py-1.5' : 'py-1'} ${tone} ${isAdmin ? 'cursor-pointer hover:border-indigo-300 active:bg-slate-100' : ''}`}>
                       <div className="flex items-center gap-1.5 min-w-0">
+                        <Avatar a={a} size={big ? 34 : 26} />
                         <span className={`shrink-0 font-bold text-slate-900 leading-tight ${big ? 'text-xl' : 'text-[16px]'}`}>{a.name}</span>
                         <span className={`min-w-0 truncate text-slate-700 ${big ? 'text-sm' : 'text-[12px]'}`}>{a.position}</span>
                         {a.speech && <span className="shrink-0 text-[10px] font-bold px-1 rounded bg-violet-600 text-white">{a.speechType}</span>}
@@ -638,7 +642,8 @@ function ActionSheet({ a, onClose, setStatus, toggleSpeech, toggleIntro, updateA
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-3" onClick={onClose}>
       <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl p-4 w-full max-w-md shadow-2xl">
-        <div className="flex items-start gap-2 mb-3">
+        <div className="flex items-start gap-3 mb-3">
+          <Avatar a={a} size={72} cls="rounded-lg" />
           <div className="min-w-0">
             <div className="text-2xl font-bold leading-tight">{a.name} <span className="text-base font-medium text-slate-600">{a.position}</span></div>
             <div className="text-sm text-slate-500">{a.organization} · <span className="font-mono">{a.seat}</span></div>
@@ -725,6 +730,7 @@ function OrderList({ ids, attendees, setOrder, editable, renderExtra, onRemove, 
               className={`relative flex items-center gap-2 pl-2.5 pr-1.5 py-1.5 select-none ${editable ? 'cursor-pointer active:bg-slate-100' : ''} ${picked === i ? 'bg-blue-100' : picked != null ? 'bg-blue-50/40' : dragIdx === i ? 'opacity-40' : overIdx === i && dragIdx != null ? 'bg-blue-50' : absent ? 'bg-rose-50/50' : 'bg-white'}`}>
               <span className={`absolute left-0 top-0 bottom-0 w-1 ${BAR[a.status]}`} />
               <span className="w-6 text-center text-sm font-bold text-slate-500 tabular-nums shrink-0">{i + 1}</span>
+              <Avatar a={a} size={30} />
               <div className="min-w-0 flex-1 leading-tight">
                 <div className="flex items-baseline gap-1.5 min-w-0">
                   <span className="text-[17px] font-bold text-slate-900 whitespace-nowrap">{a.name}</span>
@@ -1056,6 +1062,7 @@ function ManageView({ applyProtocol, onQuickAdd, attendees, updateAttendee, addA
           <div key={a.id} className={`rounded-md border border-l-4 pl-2 pr-1.5 py-1 ${PRESENT.includes(a.status) ? 'border-l-emerald-500 bg-emerald-50/50' : a.status === '불참' ? 'border-l-rose-400' : 'border-l-slate-300'} border-slate-200`}>
             <div className="flex items-center gap-1.5 min-w-0">
               <span className="shrink-0 text-[11px] font-bold text-indigo-600 tabular-nums w-5">{rankOf(a) === 999 ? '-' : rankOf(a)}</span>
+              <Avatar a={a} size={24} />
               <span className="shrink-0 text-[16px] font-bold leading-tight">{a.name}</span>
               <span className="shrink-0 text-[12px] text-slate-700">{a.position}</span>
               <span className="min-w-0 truncate text-[11px] text-slate-400"><b className="text-slate-600">{a.grade}</b>{a.rsvp === 'T' ? <span className="text-amber-600"> △</span> : a.rsvp === 'X' ? <span className="text-rose-500"> ✕</span> : a.rsvp === '' ? ' –' : ''} · {a.organization}{a.seat ? ` · ${a.seat}` : ''}</span>
@@ -1299,7 +1306,7 @@ function PrintSheet({ event, attendees, speechOrder, introOrder, stats }) {
       {mode === 'speech' ? (
         <table className="w-full text-sm border-collapse">
           <thead><tr className="bg-slate-100"><th className="border border-black px-2 py-1 w-10">순</th><th className="border border-black px-2 py-1 w-20">구분</th><th className="border border-black px-2 py-1">소속</th><th className="border border-black px-2 py-1">직위</th><th className="border border-black px-2 py-1">성명</th><th className="border border-black px-2 py-1 w-16">참석</th><th className="border border-black px-2 py-1 w-24">비고</th></tr></thead>
-          <tbody>{speakers.map((a, i) => <tr key={a.id}><td className="border border-black px-2 py-1.5 text-center font-bold">{i + 1}</td><td className="border border-black px-2 py-1.5 text-center font-bold">{a.speechType}</td><td className="border border-black px-2 py-1.5">{a.organization}</td><td className="border border-black px-2 py-1.5">{a.position}</td><td className="border border-black px-2 py-1.5 font-bold text-base">{a.name}</td><td className="border border-black px-2 py-1.5 text-center">{PRESENT.includes(a.status) ? '○' : a.status === '불참' ? '불참' : ''}</td><td className="border border-black px-2 py-1.5 text-xs">{a.note}</td></tr>)}</tbody>
+          <tbody>{speakers.map((a, i) => <tr key={a.id}><td className="border border-black px-2 py-1.5 text-center font-bold">{i + 1}</td><td className="border border-black px-2 py-1.5 text-center font-bold">{a.speechType}</td><td className="border border-black px-2 py-1.5">{a.organization}</td><td className="border border-black px-2 py-1.5">{a.position}</td><td className="border border-black px-2 py-1 font-bold text-base"><span className="inline-flex items-center gap-2">{photoOf(a) && <img src={photoOf(a)} alt="" style={{ width: 28, height: 35, objectFit: 'cover' }} />}{a.name}</span></td><td className="border border-black px-2 py-1.5 text-center">{PRESENT.includes(a.status) ? '○' : a.status === '불참' ? '불참' : ''}</td><td className="border border-black px-2 py-1.5 text-xs">{a.note}</td></tr>)}</tbody>
         </table>
       ) : (
         <table className="w-full text-xs border-collapse">
@@ -1459,6 +1466,7 @@ function GuideView({ state, stats, sync, isAdmin }) {
           <li><b>VIP지정석</b>: 좌석 탭에서 「의전순 자동 배정」 또는 빈 좌석을 눌러 직접 배정. 1열(빨간 테두리)이 지정석입니다. 열별 좌석 수는 「열 구성」에서 실제 홀에 맞게 바꿉니다.</li>
           <li><b>인사말씀 지정</b>: 체크 창의 「인사말씀」 또는 인사말씀·소개 탭의 「대상 추가」. 순서는 줄을 누르고 → 들어갈 자리를 누르면 바뀝니다.</li>
           <li><b>인쇄</b>: 현황판 「인사말씀 인쇄」(노트북 크롬 권장). 도착한 사람만 멘트에 들어가고, 도착 체크가 안 된 대상은 아래에 따로 표시됩니다.</li>
+          <li><b>내빈 사진</b>: 주요 내빈 사진은 담당자(전명구)에게 「성명.jpg」 파일로 보내면 배포에 포함됩니다(현재 {PHOTO_COUNT}명 등록). 사진이 있는 내빈은 현황판·내빈 관리·인사말씀 목록에 얼굴이 표시되고, 카드를 누르면 크게 보입니다. 화면 자료에 사진이 묻어가지 않아 통신량·비용에 영향이 없습니다.</li>
           <li><b>카톡 보고</b>: 머리글 「보고」 → 전체·참석·불참·인사말씀 중 선택 → 「카톡으로 보내기」 또는 「복사」 후 대화방에 붙여넣기.</li>
         </ul>
         <p className="font-bold pt-1">③ 일정별 할 일</p>
