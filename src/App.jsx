@@ -9,7 +9,7 @@ import { photoOf, PHOTO_COUNT } from './photos.js';
 // =====================================================================
 
 const STORE_KEY = 'mars-vip-platform-v2';
-const APP_VERSION = '4.2.1';
+const APP_VERSION = '4.3.0';
 
 // ---------- 초기 자료 ----------
 const DEFAULT_EVENT = {
@@ -1027,7 +1027,9 @@ function ManageView({ applyProtocol, onQuickAdd, attendees, updateAttendee, addA
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
     const a = document.createElement('a'); a.href = url; a.download = `내빈현황_${new Date().toISOString().slice(0, 10)}.csv`; a.click();
   };
-  const resetStatus = async () => { if (await askUser('모든 내빈의 도착·불참 체크를 지웁니다. 계속할까요?')) patch(s => ({ attendees: s.attendees.map(a => ({ ...a, status: '미도착', arrivalTime: null, seatedTime: null })) })); };
+  const resetStatus = async () => { if (await askUser('모든 내빈의 도착·불참 체크를 지웁니다. 계속할까요?')) patch(s => { const t = Date.now(); return { attendees: s.attendees.map(a => ({ ...a, status: '미도착', arrivalTime: null, seatedTime: null, u: t })) }; }); };
+  // 전체 초기화: 도착·불참 + 내빈소개×·인사말씀× (소개·말씀은 당일 몇 분만 다시 지정)
+  const resetEverything = async () => { if (await askUser('모든 내빈을 「미도착 · 소개× · 말씀×」로 되돌립니다. 인사말씀 순서도 비워집니다. 계속할까요?')) { patch(s => { const t = Date.now(); return { attendees: s.attendees.map(a => ({ ...a, status: '미도착', arrivalTime: null, seatedTime: null, intro: false, speech: false, u: t })), speechOrder: [], metaAt: t }; }); notify('전체 초기화했습니다'); } };
 
   return (
     <div className="card p-2 sm:p-3">
@@ -1038,6 +1040,7 @@ function ManageView({ applyProtocol, onQuickAdd, attendees, updateAttendee, addA
           <button onClick={onQuickAdd} className="btn btn-dark"><Plus className="w-3 h-3" />1명 추가</button>
           <button onClick={doProtocol} className="btn btn-primary">의전순 적용</button>
           <button onClick={() => setMore(v => !v)} className="btn btn-outline md:hidden">{more ? '접기 ▴' : '더보기 ▾'}</button>
+          <button onClick={resetEverything} className="text-xs px-2 py-1.5 rounded border border-rose-400 bg-rose-50 text-rose-700 font-semibold flex items-center gap-1"><RotateCcw className="w-3 h-3" />전체 초기화</button>
           <div className={`${more ? 'flex' : 'hidden'} md:flex flex-wrap gap-1 w-full md:w-auto`}>
             <button onClick={() => setShowPaste(v => !v)} className="btn btn-outline"><Upload className="w-3 h-3" />엑셀 붙여넣기</button>
             <button onClick={exportCsv} className="btn btn-outline"><Download className="w-3 h-3" />엑셀(CSV) 저장</button>
@@ -1466,6 +1469,7 @@ function GuideView({ state, stats, sync, isAdmin }) {
           <li>오른쪽 위 <b>「관리자」</b> → 비밀번호 입력. 「이 기기에서 계속 관리자로 유지」를 켜 두면 다시 열어도 유지됩니다.</li>
           <li><b>도착 체크</b>: 현황판에서 이름 카드를 누름 → 「도착」. 내빈 관리 탭에서는 카드의 「도착」 단추를 바로 눌러도 됩니다. 다시 누르면 취소.</li>
           <li><b>불참</b>: 체크 창 또는 내빈 관리의 「불참」. 잘못 눌렀으면 「초기화」.</li>
+          <li><b>전체 초기화</b>(내빈 관리 윗줄): 모든 내빈을 미도착·소개×·말씀×로 되돌리고 인사말씀 순서를 비웁니다. 리허설 뒤·행사 아침에 한 번 누르고, 인사말씀 대상 몇 분만 다시 지정하면 됩니다. 「상태 초기화」(더보기)는 도착·불참만 지우고 소개·말씀 지정은 남깁니다.</li>
           <li><b>갑자기 오신 분</b>: 머리글 <b>「추가」</b> → 이름 검색 → 초청명단 1,049명에서 소속·직위가 채워진 채 도착 등록. 명단에 없으면 「새로 입력」.</li>
           <li><b>VIP지정석</b>: 좌석 탭에서 「의전순 자동 배정」 또는 빈 좌석을 눌러 직접 배정. 1열(빨간 테두리)이 지정석입니다. 열별 좌석 수는 「열 구성」에서 실제 홀에 맞게 바꿉니다.</li>
           <li><b>인사말씀 지정</b>: 체크 창의 「인사말씀」 또는 인사말씀·소개 탭의 「대상 추가」. 순서는 줄을 누르고 → 들어갈 자리를 누르면 바뀝니다.</li>
@@ -1477,7 +1481,7 @@ function GuideView({ state, stats, sync, isAdmin }) {
         <GuideTable head={['시점', '할 일']} rows={[
           ['지금 ~ 11. 2.', '3차 RSVP 반영(내빈 관리 → 더보기 → 엑셀 붙여넣기 또는 1명씩) → 의전 담당 확인 → 「의전순 적용」 → 관리자 비밀번호 변경'],
           ['11. 2.(월) 리허설', '관리자 핸드폰 2대로 도착 체크 → 노트북에서 인쇄·카톡 보고 시험 → 설정 「백업 파일 내려받기」'],
-          ['11. 3.(화) 아침', '내빈 관리 → 더보기 → 「상태 초기화」(시험 기록 삭제) → 운영진에게 링크·비밀번호 공유'],
+          ['11. 3.(화) 아침', '내빈 관리 → 「전체 초기화」(시험 기록 삭제) → 인사말씀 대상 재지정 → 운영진에게 링크·비밀번호 공유'],
           ['행사 중', '도착 체크 → 11:15쯤 인사말씀 인쇄해 사회자 전달 → 필요 시 카톡 중간보고'],
           ['행사 후', '결과 요약 복사(보고용) · 엑셀(CSV) 저장 → 정리(아래 6번)'],
         ]} />
