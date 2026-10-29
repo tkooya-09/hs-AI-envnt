@@ -8,7 +8,7 @@ import { ROSTER } from './roster.js';
 // =====================================================================
 
 const STORE_KEY = 'mars-vip-platform-v2';
-const APP_VERSION = '4.0.1';
+const APP_VERSION = '4.1.0';
 
 // ---------- 초기 자료 ----------
 const DEFAULT_EVENT = {
@@ -194,6 +194,7 @@ export default function App() {
   const [isAdmin, setIsAdmin] = useState(() => { const flag = sessionStorage.getItem('mars-admin') === '1' || localStorage.getItem('mars-admin-keep') === '1'; return SYNC_ON ? flag && !!pinStore.get() : flag; });
   const [view, setView] = useState('board');
   const [loginOpen, setLoginOpen] = useState(false);
+  const [gateOpen, setGateOpen] = useState(() => { try { return !(sessionStorage.getItem('mars-admin') === '1' || localStorage.getItem('mars-admin-keep') === '1' || localStorage.getItem('mars-role')); } catch { return true; } });
   const [quickAdd, setQuickAdd] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [toast, setToast] = useState(null);
@@ -379,13 +380,13 @@ export default function App() {
   const logout = () => { setIsAdmin(false); pinStore.clear(); sessionStorage.removeItem('mars-admin'); localStorage.removeItem('mars-admin-keep'); if (['manage', 'settings'].includes(view)) setView('board'); notify('조회 모드로 전환되었습니다'); };
 
   const tabs = [
-    { id: 'board', label: '현황판', icon: BarChart3 },
-    ...(isAdmin ? [{ id: 'manage', label: '내빈 관리', icon: Users }] : []),
-    { id: 'speech', label: '인사말씀·소개', icon: Mic2 },
-    { id: 'seat', label: '좌석 현황', icon: MapPin },
-    { id: 'report', label: '결과 요약', icon: FileText },
-    ...(isAdmin ? [{ id: 'settings', label: '설정', icon: Settings }] : []),
-    { id: 'guide', label: '안내', icon: BookOpen },
+    { id: 'board', label: '현황판', icon: BarChart3, on: 'bg-indigo-600 text-white shadow', off: 'bg-indigo-50 text-indigo-700' },
+    ...(isAdmin ? [{ id: 'manage', label: '내빈 관리', icon: Users, on: 'bg-emerald-600 text-white shadow', off: 'bg-emerald-50 text-emerald-700' }] : []),
+    { id: 'speech', label: '인사말씀·소개', icon: Mic2, on: 'bg-violet-600 text-white shadow', off: 'bg-violet-50 text-violet-700' },
+    { id: 'seat', label: '좌석 현황', icon: MapPin, on: 'bg-rose-600 text-white shadow', off: 'bg-rose-50 text-rose-700' },
+    { id: 'report', label: '결과 요약', icon: FileText, on: 'bg-amber-500 text-white shadow', off: 'bg-amber-50 text-amber-700' },
+    ...(isAdmin ? [{ id: 'settings', label: '설정', icon: Settings, on: 'bg-slate-700 text-white shadow', off: 'bg-slate-100 text-slate-600' }] : []),
+    { id: 'guide', label: '안내', icon: BookOpen, on: 'bg-sky-600 text-white shadow', off: 'bg-sky-50 text-sky-700' },
   ];
 
   return (
@@ -413,11 +414,11 @@ export default function App() {
           </div>
         </div>
         <nav className="bg-white border-b border-slate-200">
-          <div className="max-w-7xl mx-auto px-3 flex gap-1 overflow-x-auto">
+          <div className="max-w-7xl mx-auto px-2 py-1.5 flex gap-1.5 overflow-x-auto">
             {tabs.map(t => (
               <button key={t.id} onClick={() => setView(t.id)}
-                className={`flex items-center gap-1.5 px-3 py-2.5 text-xs md:text-sm whitespace-nowrap border-b-2 -mb-px transition-colors ${view === t.id ? 'border-indigo-600 text-indigo-700 font-bold' : 'border-transparent text-slate-500 hover:text-slate-900'}`}>
-                <t.icon className="w-3.5 h-3.5" />{t.label}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-xs md:text-sm font-bold whitespace-nowrap transition ${view === t.id ? t.on : `${t.off} hover:brightness-95`}`}>
+                <t.icon className="w-4 h-4" />{t.label}
               </button>
             ))}
           </div>
@@ -451,6 +452,7 @@ export default function App() {
       </footer>
 
       {ask && <AskModal ask={ask} onDone={v => { ask.resolve(v); setAsk(null); }} />}
+      {gateOpen && !isAdmin && <RoleGate event={event} onViewer={() => { lsSafe.set('mars-role', 'viewer'); setGateOpen(false); }} onAdmin={() => { setGateOpen(false); setLoginOpen(true); }} />}
       {loginOpen && <LoginModal onClose={() => setLoginOpen(false)} onLogin={login} />}
       {quickAdd && <QuickAddModal onClose={() => setQuickAdd(false)} attendees={attendees} onAddRoster={(i) => { addFromRoster(i); setQuickAdd(false); notify(`${ROSTER[i][4]} ${ROSTER[i][3]}님을 도착으로 등록했습니다`); }} onAdd={(d) => { addAttendee(d); setQuickAdd(false); notify(`${d.name}님을 도착으로 추가했습니다`); }} />}
       {reportOpen && <KakaoReportModal onClose={() => setReportOpen(false)} stats={stats} attendees={attendees} event={event} speechOrder={speechOrder} notify={notify} />}
@@ -1518,6 +1520,38 @@ function GuideView({ state, stats, sync, isAdmin }) {
       </GuideSec>
 
       <div className="text-[11px] text-slate-400 px-1">문의: AI스마트전략실(AI전략팀) ☎ 3652</div>
+    </div>
+  );
+}
+
+// =====================================================================
+// 입장 선택 (참관인 / 관리자)
+// =====================================================================
+function RoleGate({ event, onViewer, onAdmin }) {
+  return (
+    <div className="fixed inset-0 z-[70] bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 flex items-center justify-center p-5">
+      <div className="w-full max-w-sm text-center">
+        <div className="mx-auto w-14 h-14 rounded-2xl bg-amber-400 text-slate-900 flex items-center justify-center shadow-lg mb-3"><Crown className="w-8 h-8" /></div>
+        <div className="text-white text-xl font-bold leading-tight">{event.name}</div>
+        <div className="text-slate-300 text-sm mb-6">{event.date} · {event.place}</div>
+        <div className="space-y-3">
+          <button onClick={onViewer} className="w-full rounded-2xl bg-white p-4 text-left shadow-xl active:scale-[0.99] transition">
+            <div className="flex items-center gap-3">
+              <span className="w-11 h-11 shrink-0 rounded-xl bg-sky-100 text-sky-700 flex items-center justify-center"><Eye className="w-6 h-6" /></span>
+              <span><b className="block text-base">참관인으로 보기</b><span className="text-xs text-slate-500">비밀번호 없이 실시간 현황 조회</span></span>
+              <span className="ml-auto text-slate-300 text-xl">›</span>
+            </div>
+          </button>
+          <button onClick={onAdmin} className="w-full rounded-2xl bg-rose-600 p-4 text-left shadow-xl active:scale-[0.99] transition">
+            <div className="flex items-center gap-3">
+              <span className="w-11 h-11 shrink-0 rounded-xl bg-white/20 text-white flex items-center justify-center"><Lock className="w-6 h-6" /></span>
+              <span className="text-white"><b className="block text-base">운영진(관리자) 입장</b><span className="text-xs text-rose-100">비밀번호 입력 · 도착 체크와 수정 가능</span></span>
+              <span className="ml-auto text-rose-200 text-xl">›</span>
+            </div>
+          </button>
+        </div>
+        <div className="text-[11px] text-slate-400 mt-5">화성특례시 AI스마트전략실 · 내빈 운영 플랫폼</div>
+      </div>
     </div>
   );
 }
