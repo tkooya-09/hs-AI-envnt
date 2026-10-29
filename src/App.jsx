@@ -9,7 +9,7 @@ import { photoOf, PHOTO_COUNT } from './photos.js';
 // =====================================================================
 
 const STORE_KEY = 'mars-vip-platform-v2';
-const APP_VERSION = '4.3.0';
+const APP_VERSION = '4.3.1';
 
 // ---------- 초기 자료 ----------
 const DEFAULT_EVENT = {
@@ -1039,8 +1039,8 @@ function ManageView({ applyProtocol, onQuickAdd, attendees, updateAttendee, addA
         <div className="w-full md:w-auto md:ml-auto flex flex-wrap gap-1">
           <button onClick={onQuickAdd} className="btn btn-dark"><Plus className="w-3 h-3" />1명 추가</button>
           <button onClick={doProtocol} className="btn btn-primary">의전순 적용</button>
-          <button onClick={() => setMore(v => !v)} className="btn btn-outline md:hidden">{more ? '접기 ▴' : '더보기 ▾'}</button>
-          <button onClick={resetEverything} className="text-xs px-2 py-1.5 rounded border border-rose-400 bg-rose-50 text-rose-700 font-semibold flex items-center gap-1"><RotateCcw className="w-3 h-3" />전체 초기화</button>
+          <button onClick={() => setMore(v => !v)} className="btn btn-outline md:hidden px-2">{more ? '접기▴' : '더보기▾'}</button>
+          <button onClick={resetEverything} className="text-[11px] px-1.5 py-1 rounded border border-rose-400 bg-rose-50 text-rose-700 font-semibold whitespace-nowrap">전체초기화</button>
           <div className={`${more ? 'flex' : 'hidden'} md:flex flex-wrap gap-1 w-full md:w-auto`}>
             <button onClick={() => setShowPaste(v => !v)} className="btn btn-outline"><Upload className="w-3 h-3" />엑셀 붙여넣기</button>
             <button onClick={exportCsv} className="btn btn-outline"><Download className="w-3 h-3" />엑셀(CSV) 저장</button>
