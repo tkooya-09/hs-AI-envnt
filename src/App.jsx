@@ -9,7 +9,7 @@ import { photoOf, PHOTO_COUNT } from './photos.js';
 // =====================================================================
 
 const STORE_KEY = 'mars-vip-platform-v2';
-const APP_VERSION = '4.4.0';
+const APP_VERSION = '4.4.1';
 
 // ---------- 초기 자료 ----------
 const DEFAULT_EVENT = {
@@ -96,12 +96,12 @@ const STATUSES = ['미도착', '도착', '불참'];
 const PRESENT = ['도착', '착석'];
 const STATUS_STYLE = {
   '미도착': 'bg-slate-100 text-slate-600 border-slate-300',
-  '도착': 'bg-emerald-50 text-emerald-700 border-emerald-300',
-  '착석': 'bg-emerald-50 text-emerald-700 border-emerald-300',
+  '도착': 'bg-red-600 text-white border-red-600',
+  '착석': 'bg-red-600 text-white border-red-600',
   '퇴장': 'bg-slate-50 text-slate-500 border-slate-300',
-  '불참': 'bg-rose-50 text-rose-700 border-rose-300',
+  '불참': 'bg-slate-600 text-white border-slate-600',
 };
-const STATUS_DOT = { '미도착': 'bg-slate-400', '도착': 'bg-emerald-500', '착석': 'bg-emerald-500', '퇴장': 'bg-slate-300', '불참': 'bg-rose-500' };
+const STATUS_DOT = { '미도착': 'bg-slate-400', '도착': 'bg-white', '착석': 'bg-white', '퇴장': 'bg-slate-300', '불참': 'bg-white' };
 const GRADES = ['VIP', 'S', 'A', 'B', '기타'];
 const GRADE_STYLES = {
   'VIP': { bg: 'bg-rose-600', light: 'bg-rose-50', border: 'border-rose-200' },
@@ -1067,7 +1067,7 @@ function ManageView({ applyProtocol, onQuickAdd, attendees, updateAttendee, addA
       {/* 핸드폰: 2줄 카드 (이름 줄 + 단추 줄) */}
       <div className="md:hidden space-y-1">
         {shown.map(a => (
-          <div key={a.id} className={`rounded-md border border-l-4 pl-1.5 pr-1.5 py-1 ${PRESENT.includes(a.status) ? 'border-l-emerald-500 bg-emerald-50/50' : a.status === '불참' ? 'border-l-rose-400' : 'border-l-slate-300'} border-slate-200 flex items-center gap-1.5`}>
+          <div key={a.id} className={`rounded-md border border-l-4 pl-1.5 pr-1.5 py-1 ${PRESENT.includes(a.status) ? 'border-l-red-600 bg-red-50 border-red-200' : a.status === '불참' ? 'border-l-slate-400 bg-slate-100 border-slate-200 opacity-80' : 'border-l-slate-300 border-slate-200'} flex items-center gap-1.5`}>
             <Avatar a={a} size={44} />
             <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5 min-w-0">
@@ -1079,8 +1079,8 @@ function ManageView({ applyProtocol, onQuickAdd, attendees, updateAttendee, addA
               <button onClick={() => setEdit(a.id)} className="shrink-0 p-1 text-slate-400"><Pencil className="w-3.5 h-3.5" /></button>
             </div>
             <div className="flex items-center gap-1 mt-0.5">
-              {[['도착', 'bg-emerald-600 border-emerald-600 text-white'], ['불참', 'bg-white border-rose-300 text-rose-600'], ['미도착', 'bg-white border-slate-300 text-slate-500']].map(([st, cls]) => (
-                <button key={st} onClick={() => setStatus(a.id, st)} className={`flex-1 rounded border py-0.5 text-[11px] font-bold ${a.status === st ? 'ring-2 ring-slate-800' : ''} ${cls}`}>{st === '미도착' ? '초기화' : st}</button>
+              {[['도착', 'bg-red-600 border-red-600 text-white shadow', 'bg-white border-emerald-500 text-emerald-700'], ['불참', 'bg-slate-700 border-slate-700 text-white', 'bg-white border-slate-300 text-slate-500'], ['미도착', 'bg-white border-slate-300 text-slate-500', 'bg-white border-slate-300 text-slate-500']].map(([st, on, off]) => (
+                <button key={st} onClick={() => setStatus(a.id, st)} className={`flex-1 rounded border py-0.5 text-[11px] font-bold ${a.status === st && st !== '미도착' ? on : off}`}>{st === '미도착' ? '초기화' : st === '도착' && PRESENT.includes(a.status) ? '✔ 도착' : st}</button>
               ))}
               <button onClick={() => toggleIntro(a.id, !a.intro)} className={`shrink-0 px-1.5 py-0.5 rounded border text-[10px] font-bold ${a.intro ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-400 border-slate-300'}`}>소개{a.intro ? '○' : '×'}</button>
               <button onClick={() => toggleSpeech(a.id, !a.speech)} className={`shrink-0 px-1.5 py-0.5 rounded border text-[10px] font-bold ${a.speech ? 'bg-violet-600 text-white border-violet-600' : 'bg-white text-slate-400 border-slate-300'}`}>{a.speech ? a.speechType : '말씀×'}</button>
