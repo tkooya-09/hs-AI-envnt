@@ -9,7 +9,7 @@ import { photoOf, PHOTO_COUNT } from './photos.js';
 // =====================================================================
 
 const STORE_KEY = 'mars-vip-platform-v2';
-const APP_VERSION = '4.3.2';
+const APP_VERSION = '4.4.0';
 
 // ---------- 초기 자료 ----------
 const DEFAULT_EVENT = {
