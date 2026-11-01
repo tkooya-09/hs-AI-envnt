@@ -9,7 +9,7 @@ import { photoOf, PHOTO_COUNT } from './photos.js';
 // =====================================================================
 
 const STORE_KEY = 'mars-vip-platform-v2';
-const APP_VERSION = '4.4.1';
+const APP_VERSION = '4.5.0';
 
 // ---------- 초기 자료 ----------
 const DEFAULT_EVENT = {
@@ -79,14 +79,14 @@ const DEFAULT_STATE = () => {
     event: DEFAULT_EVENT, program: DEFAULT_PROGRAM, attendees,
     speechOrder: seedSpeechOrder(attendees), introOrder: attendees.map(a => a.id),
     seatZones: DEFAULT_SEATZONES, seatMap: {}, seatLayout: {},
-    adminPin: '1234', nextId: 900001, metaAt: T0, tombstones: tomb, rosterVer: 8,
+    adminPin: '1234', nextId: 900001, metaAt: T0, tombstones: tomb, rosterVer: 9,
   };
 };
 
 const loadState = () => {
   try {
     const s = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
-    if (s && s.attendees && s.rosterVer === 8) return normState({ ...DEFAULT_STATE(), ...s });
+    if (s && s.attendees && s.rosterVer === 9) return normState({ ...DEFAULT_STATE(), ...s });
   } catch {}
   return DEFAULT_STATE();
 };
@@ -1254,7 +1254,7 @@ function QuickAddModal({ onClose, attendees, onAdd, onAddRoster }) {
           <>
             <div className="relative">
               <Search className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="이름을 입력하세요 (초청명단 1,049명 검색)" className="w-full border-2 border-slate-300 rounded-lg pl-8 pr-2 py-2.5 text-base" />
+              <input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="이름을 입력하세요 (초청명단 전체(1,068명) 검색)" className="w-full border-2 border-slate-300 rounded-lg pl-8 pr-2 py-2.5 text-base" />
             </div>
             <div className="mt-2 divide-y divide-slate-100 rounded-lg border border-slate-200 overflow-hidden empty:border-0">
               {hits.map(({ r, i }) => {
@@ -1454,7 +1454,7 @@ function GuideView({ state, stats, sync, isAdmin }) {
       </div>
 
       <GuideSec id="about" title="1. 이 플랫폼은" open>
-        <p>AI EXPO 「MARS 2026」 개막식(2026. 11. 3.) <b>내빈 도착 확인 · 내빈 소개 · 인사말씀 순서 · VIP지정석</b>을 여러 사람이 핸드폰으로 함께 관리하는 화면입니다. 초청명단 1,049명 중 참석(○)·미정(△) 회신 인사와 VIP 등급 전원인 <b>예정 명단 약 182명</b>이 화면에 보이고, 나머지는 「추가」에서 이름만 치면 올라옵니다.</p>
+        <p>AI EXPO 「MARS 2026」 개막식(2026. 11. 3.) <b>내빈 도착 확인 · 내빈 소개 · 인사말씀 순서 · VIP지정석</b>을 여러 사람이 핸드폰으로 함께 관리하는 화면입니다. 초청명단 전체(1,068명) 중 참석(○)·미정(△) 회신 인사와 VIP 등급 전원인 <b>예정 명단 약 182명</b>이 화면에 보이고, 나머지는 「추가」에서 이름만 치면 올라옵니다.</p>
         <ul className="list-disc pl-5 space-y-0.5">
           <li><b>링크 하나로 공유</b>: 설치·회원가입 없이 주소만 열면 됩니다. 핸드폰·태블릿·노트북 모두 같은 자료를 봅니다(4초 간격 갱신).</li>
           <li><b>관리자 / 조회 구분</b>: 비밀번호를 넣은 사람만 체크·수정할 수 있고, 나머지는 보기만 합니다.</li>
@@ -1473,7 +1473,7 @@ function GuideView({ state, stats, sync, isAdmin }) {
           <li><b>도착 체크</b>: 현황판에서 이름 카드를 누름 → 「도착」. 내빈 관리 탭에서는 카드의 「도착」 단추를 바로 눌러도 됩니다. 다시 누르면 취소.</li>
           <li><b>불참</b>: 체크 창 또는 내빈 관리의 「불참」. 잘못 눌렀으면 「초기화」.</li>
           <li><b>전체 초기화</b>(내빈 관리 윗줄): 모든 내빈을 미도착·소개×·말씀×로 되돌리고 인사말씀 순서를 비웁니다. 리허설 뒤·행사 아침에 한 번 누르고, 인사말씀 대상 몇 분만 다시 지정하면 됩니다. <b>다른 운영진이 체크 중일 때는 누르지 마세요</b>(초기화 직후 몇 초 안에 다른 기기에서 누른 체크는 그 사람의 옛 소개·말씀 표시를 되살릴 수 있음). 「상태 초기화」(더보기)는 도착·불참만 지우고 소개·말씀 지정은 남깁니다.</li>
-          <li><b>갑자기 오신 분</b>: 머리글 <b>「추가」</b> → 이름 검색 → 초청명단 1,049명에서 소속·직위가 채워진 채 도착 등록. 명단에 없으면 「새로 입력」.</li>
+          <li><b>갑자기 오신 분</b>: 머리글 <b>「추가」</b> → 이름 검색 → 초청명단 전체(1,068명)에서 소속·직위가 채워진 채 도착 등록. 명단에 없으면 「새로 입력」.</li>
           <li><b>VIP지정석</b>: 좌석 탭에서 「의전순 자동 배정」 또는 빈 좌석을 눌러 직접 배정. 1열(빨간 테두리)이 지정석입니다. 열별 좌석 수는 「열 구성」에서 실제 홀에 맞게 바꿉니다.</li>
           <li><b>인사말씀 지정</b>: 체크 창의 「인사말씀」 또는 인사말씀·소개 탭의 「대상 추가」. 순서는 줄을 누르고 → 들어갈 자리를 누르면 바뀝니다.</li>
           <li><b>인쇄</b>: 현황판 「인사말씀 인쇄」(노트북 크롬 권장). 도착한 사람만 멘트에 들어가고, 도착 체크가 안 된 대상은 아래에 따로 표시됩니다.</li>
