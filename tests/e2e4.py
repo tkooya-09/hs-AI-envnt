@@ -22,7 +22,7 @@ with sync_playwright() as p:
     pg.goto(f); pg.wait_for_timeout(1500)
     st=lambda: pg.evaluate("JSON.parse(localStorage.getItem('mars-vip-platform-v2'))")
     s0=st()
-    ck('1 예정명단 209명(주최 포함)', len(s0['attendees'])==209)
+    ck('1 예정명단 221명(주최 포함)', len(s0['attendees'])==221)
     ck('2 rosterVer=9', s0.get('rosterVer')==9)
     # login
     pg.get_by_role('button', name='운영진(관리자) 입장').click(); pg.locator('input[type=password]').fill('1234'); pg.get_by_role('button', name='입장', exact=True).click(); pg.wait_for_timeout(900)
@@ -73,7 +73,7 @@ with sync_playwright() as p:
     ck('13 열 구성 변경 반영', len(st()['seatZones'][0]['rows'])==2)
     # server sync
     pg.wait_for_timeout(2000)
-    ck('14 서버 반영(비번 숨김)', srv['data'] and 'adminPin' not in srv['data'] and len(srv['data']['attendees'])>=209)
+    ck('14 서버 반영(비번 숨김)', srv['data'] and 'adminPin' not in srv['data'] and len(srv['data']['attendees'])>=221)
     ck('15 화면 오류 없음', not errs)
     for r in R: print(*r)
     if errs: print(errs[:4])
