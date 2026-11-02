@@ -9,7 +9,7 @@ import { photoOf, PHOTO_COUNT } from './photos.js';
 // =====================================================================
 
 const STORE_KEY = 'mars-vip-platform-v2';
-const APP_VERSION = '4.6.0';
+const APP_VERSION = '4.6.1';
 
 // ---------- 초기 자료 ----------
 const DEFAULT_EVENT = {
@@ -79,14 +79,14 @@ const DEFAULT_STATE = () => {
     event: DEFAULT_EVENT, program: DEFAULT_PROGRAM, attendees,
     speechOrder: seedSpeechOrder(attendees), introOrder: attendees.map(a => a.id),
     seatZones: DEFAULT_SEATZONES, seatMap: {}, seatLayout: {},
-    adminPin: '1234', nextId: 900001, metaAt: T0, tombstones: tomb, rosterVer: 10,
+    adminPin: '1234', nextId: 900001, metaAt: T0, tombstones: tomb, rosterVer: 11,
   };
 };
 
 const loadState = () => {
   try {
     const s = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
-    if (s && s.attendees && s.rosterVer === 10) return normState({ ...DEFAULT_STATE(), ...s });
+    if (s && s.attendees && s.rosterVer === 11) return normState({ ...DEFAULT_STATE(), ...s });
   } catch {}
   return DEFAULT_STATE();
 };
@@ -1013,8 +1013,9 @@ function ManageView({ applyProtocol, onQuickAdd, attendees, updateAttendee, addA
   useEffect(() => { try { localStorage.setItem('mars-manage-sort', sort); } catch {} }, [sort]);
   const ST_ORDER = { '도착': 0, '착석': 0, '미도착': 1, '불참': 3, '퇴장': 4 };
   const RSVP_ORDER = { O: 0, T: 1, '': 2, X: 3 };
-  const sorter = { rank: byRank, reg: (x, y) => x.id - y.id, seat: (x, y) => (x.seat || '~').localeCompare(y.seat || '~'), name: (x, y) => x.name.localeCompare(y.name, 'ko'), status: (x, y) => ST_ORDER[x.status] - ST_ORDER[y.status] || byRank(x, y), rsvp: (x, y) => RSVP_ORDER[x.rsvp ?? ''] - RSVP_ORDER[y.rsvp ?? ''] || byRank(x, y) }[sort];
-  const shown = attendees.filter(a => !q.trim() || `${a.name}${a.organization}${a.position}${a.category}${a.seat}`.includes(q.trim())).sort(sorter);
+  const sorter = { rank: byRank, reg: (x, y) => x.id - y.id, seat: (x, y) => (x.seat || '~').localeCompare(y.seat || '~'), name: (x, y) => x.name.localeCompare(y.name, 'ko'), status: (x, y) => ST_ORDER[x.status] - ST_ORDER[y.status] || byRank(x, y), rsvp: (x, y) => RSVP_ORDER[x.rsvp ?? ''] - RSVP_ORDER[y.rsvp ?? ''] || byRank(x, y), alliance: (x, y) => (y.alliance ? 1 : 0) - (x.alliance ? 1 : 0) || byRank(x, y) }[sort] || byRank;
+  const [onlyAll, setOnlyAll] = useState(false); // 차담회 대상만 보기
+  const shown = attendees.filter(a => !onlyAll || a.alliance).filter(a => !q.trim() || `${a.name}${a.organization}${a.position}${a.category}${a.seat}`.includes(q.trim())).sort(sorter);
   const doProtocol = async () => { if (await askUser('의전 순위대로 맞춥니다.\n· 내빈 소개·인사말씀 순서를 의전순으로\n· VIP지정석을 1열 통로 쪽부터 자동 배정(불참 제외)\n\n지금 순서와 좌석 배정이 바뀝니다. 계속할까요?')) { applyProtocol(); notify('의전순으로 맞췄습니다'); } };
   const [showPaste, setShowPaste] = useState(false);
   const cell = 'border border-transparent hover:border-slate-300 focus:border-blue-400 rounded px-1 py-0.5 text-xs w-full bg-transparent';
@@ -1059,9 +1060,10 @@ function ManageView({ applyProtocol, onQuickAdd, attendees, updateAttendee, addA
       </div>
       <div className="flex items-center gap-1 mb-1.5 overflow-x-auto text-xs">
         <span className="text-slate-500 shrink-0">정렬</span>
-        {[['rank', '의전순'], ['status', '도착 먼저'], ['rsvp', '사전참석(○) 먼저'], ['seat', '좌석순'], ['name', '가나다순'], ['reg', '등록순']].map(([k, l]) => (
-          <button key={k} onClick={() => setSort(k)} className={`shrink-0 px-2 py-0.5 rounded-full border font-semibold ${sort === k ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-300'}`}>{l}</button>
+        {[['rank', '의전순'], ['status', '도착 먼저'], ['alliance', '차담회 먼저'], ['rsvp', '사전참석(○) 먼저'], ['seat', '좌석순'], ['name', '가나다순'], ['reg', '등록순']].map(([k, l]) => (
+          <button key={k} onClick={() => setSort(k)} className={`shrink-0 px-2 py-0.5 rounded-full border font-semibold ${sort === k ? (k === 'alliance' ? 'bg-amber-500 text-white border-amber-500' : 'bg-slate-900 text-white border-slate-900') : 'bg-white text-slate-600 border-slate-300'}`}>{l}</button>
         ))}
+        <button onClick={() => setOnlyAll(v => !v)} className={`shrink-0 ml-1 px-2 py-0.5 rounded-full border font-bold ${onlyAll ? 'bg-amber-400 text-amber-950 border-amber-400' : 'bg-amber-50 text-amber-800 border-amber-300'}`}>차담회만 {attendees.filter(a => a.alliance).length}{onlyAll ? ' ✓' : ''}</button>
       </div>
       {showPaste && (
         <div className="mb-3 border border-blue-200 bg-blue-50 rounded p-2">
@@ -1162,8 +1164,8 @@ function SettingsView({ state, patch, setState, notify, sync, askUser, changePin
     Object.keys(tomb).forEach(k => { if (keep.has(Number(k))) delete tomb[k]; });
     return { ...next, attendees: next.attendees.map(a => ({ ...a, u: t })), tombstones: tomb, metaAt: t, seatLayout: prev.seatLayout, adminPin: prev.adminPin, nextId: Math.max(next.nextId || 0, prev.nextId || 0) };
   });
-  const restore = (f) => { const r = new FileReader(); r.onload = async () => { try { const s = JSON.parse(r.result); if (!s.attendees) throw 0; if (!(await askUser(`백업 파일(${s.attendees.length}명)로 모든 기기의 자료를 바꿉니다. 계속할까요?`))) return; stampAll({ ...DEFAULT_STATE(), ...s }); notify('복원했습니다'); } catch { notify('파일 형식이 올바르지 않습니다'); } }; r.readAsText(f); };
-  const resetAll = async () => { if (await askUser('모든 기기의 자료를 초기 상태(RSVP 43명)로 되돌립니다. 백업을 먼저 받으셨나요?')) { stampAll(DEFAULT_STATE()); notify('초기화했습니다'); } };
+  const restore = (f) => { const r = new FileReader(); r.onload = async () => { try { const s = JSON.parse(r.result); if (!s.attendees) throw 0; if ((s.rosterVer || 0) !== DEFAULT_STATE().rosterVer) { notify('이 백업은 옛 명단 판이라 복원할 수 없습니다(현재 판과 다름)'); return; } if (!(await askUser(`백업 파일(${s.attendees.length}명)로 모든 기기의 자료를 바꿉니다. 계속할까요?`))) return; stampAll({ ...DEFAULT_STATE(), ...s }); notify('복원했습니다'); } catch { notify('파일 형식이 올바르지 않습니다'); } }; r.readAsText(f); };
+  const resetAll = async () => { if (await askUser('모든 기기의 자료를 초기 상태(예정 명단 전원 미도착)로 되돌립니다. 백업을 먼저 받으셨나요?')) { stampAll(DEFAULT_STATE()); notify('초기화했습니다'); } };
   const box = 'card p-3';
   const inp = 'w-full border border-slate-300 rounded px-2 py-1.5 text-xs';
 
