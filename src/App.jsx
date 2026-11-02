@@ -9,7 +9,7 @@ import { photoOf, PHOTO_COUNT } from './photos.js';
 // =====================================================================
 
 const STORE_KEY = 'mars-vip-platform-v2';
-const APP_VERSION = '4.6.1';
+const APP_VERSION = '4.6.2';
 
 // ---------- 초기 자료 ----------
 const DEFAULT_EVENT = {
@@ -1103,12 +1103,13 @@ function ManageView({ applyProtocol, onQuickAdd, attendees, updateAttendee, addA
       <div className="hidden md:block overflow-x-auto">
         <table className="w-full text-xs min-w-[980px]">
           <thead><tr className="bg-slate-100 text-slate-600 text-left">
-            {['의전', '구분', '소속', '직위', '성명', '등급', '좌석', '상태 변경', '인사말씀', '소개', '비고', ''].map(h => <th key={h} className="px-1.5 py-1.5 font-semibold whitespace-nowrap">{h}</th>)}
+            {['의전', '사진', '구분', '소속', '직위', '성명', '등급', '좌석', '상태 변경', '인사말씀', '소개', '비고', ''].map(h => <th key={h} className="px-1.5 py-1.5 font-semibold whitespace-nowrap">{h}</th>)}
           </tr></thead>
           <tbody>
             {shown.map((a, i) => (
-              <tr key={a.id} className="border-b border-slate-100 hover:bg-slate-50 align-middle">
+              <tr key={a.id} className={`border-b border-slate-100 hover:bg-slate-50 align-middle ${PRESENT.includes(a.status) ? 'bg-red-50' : a.alliance ? 'bg-amber-50/60' : ''}`}>
                 <td className="px-1 w-12"><input type="number" min="1" className={`${cell} text-center font-bold text-indigo-700`} value={rankOf(a) === 999 ? '' : rankOf(a)} onChange={e => updateAttendee(a.id, { rank: e.target.value === '' ? null : Number(e.target.value) })} /></td>
+                <td className="px-1 w-14"><div className="flex flex-col items-center gap-0.5 py-0.5"><Avatar a={a} size={36} /><AllianceTag a={a} small /></div></td>
                 <td className="px-1 w-28"><input className={cell} value={a.category} onChange={e => updateAttendee(a.id, { category: e.target.value })} /></td>
                 <td className="px-1 w-44"><input className={cell} value={a.organization} onChange={e => updateAttendee(a.id, { organization: e.target.value })} /></td>
                 <td className="px-1 w-28"><input className={cell} value={a.position} onChange={e => updateAttendee(a.id, { position: e.target.value })} /></td>
