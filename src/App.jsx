@@ -9,7 +9,7 @@ import { photoOf, PHOTO_COUNT } from './photos.js';
 // =====================================================================
 
 const STORE_KEY = 'mars-vip-platform-v2';
-const APP_VERSION = '4.5.2';
+const APP_VERSION = '4.6.0';
 
 // ---------- 초기 자료 ----------
 const DEFAULT_EVENT = {
@@ -38,17 +38,17 @@ const T0 = 1793256699493; // 명단 반영 시점 — 이보다 오래된 기록
 const SPEECH_TYPES = ['개회사', '환영사', '축사', '격려사', '기념사', '인사말'];
 const MARK_TXT = { O: '○ 사전참석', T: '△ 미정', X: '✕ 사전불참', '': '미확인' };
 const HOST = { id: 901, rid: -1, category: '주최', organization: '화성특례시', position: '시장', name: '정명근', note: '주최', grade: 'VIP', rsvp: 'O', seat: '', status: '미도착', arrivalTime: null, seatedTime: null, intro: false, rank: 1, speech: true, speechType: '개회사', u: T0 };
-const SPEECH_DEFAULT = { '이계철': '환영사', '김종민': '축사', '하정우': '축사' };
+const SPEECH_DEFAULT = { '이계철': '환영사', '김종민': '축사' }; // 하정우: 최종 사전참석 X
 const fromRoster = (i, extra) => {
-  const [grade, category, organization, position, name, rsvp] = ROSTER[i];
-  return { id: 1000 + i, rid: i, grade, category, organization, position, name, rsvp, note: '', seat: '', status: '미도착', arrivalTime: null, seatedTime: null, intro: true, rank: i + 2, speech: !!SPEECH_DEFAULT[name], speechType: SPEECH_DEFAULT[name] || '축사', u: T0, ...extra };
+  const [grade, category, organization, position, name, rsvp, tag] = ROSTER[i];
+  return { id: 1000 + i, rid: i, grade, category, organization, position, name, rsvp, alliance: tag === 'A', note: '', seat: '', status: '미도착', arrivalTime: null, seatedTime: null, intro: true, rank: i + 2, speech: !!SPEECH_DEFAULT[name], speechType: SPEECH_DEFAULT[name] || '축사', u: T0, ...extra };
 };
 // 예정 명단: 사전회신 ○·△ 전원 + VIP 등급 미확인
 const LISTED = ROSTER.map((r, i) => i).filter(i => ROSTER[i][5] === 'O' || ROSTER[i][5] === 'T' || (ROSTER[i][0] === 'VIP' && ROSTER[i][5] === ''));
 const rankOf = (a) => (a.rank != null && a.rank !== '' ? Number(a.rank) : 999);
 const byRank = (x, y) => rankOf(x) - rankOf(y) || x.id - y.id;
 const makeSeed = () => [HOST, ...LISTED.map(i => fromRoster(i))];
-const seedSpeechOrder = (list) => ['정명근', '이계철', '김종민', '하정우'].map(n => list.find(a => a.name === n && a.speech)?.id).filter(Boolean);
+const seedSpeechOrder = (list) => ['정명근', '이계철', '김종민'].map(n => list.find(a => a.name === n && a.speech)?.id).filter(Boolean);
 
 // ---------- 좌석: 오디토리움 VIP지정석 (무대 앞 가운데 좌·우 블록, 1열이 지정석) ----------
 const DEFAULT_SEATZONES = [
@@ -79,14 +79,14 @@ const DEFAULT_STATE = () => {
     event: DEFAULT_EVENT, program: DEFAULT_PROGRAM, attendees,
     speechOrder: seedSpeechOrder(attendees), introOrder: attendees.map(a => a.id),
     seatZones: DEFAULT_SEATZONES, seatMap: {}, seatLayout: {},
-    adminPin: '1234', nextId: 900001, metaAt: T0, tombstones: tomb, rosterVer: 9,
+    adminPin: '1234', nextId: 900001, metaAt: T0, tombstones: tomb, rosterVer: 10,
   };
 };
 
 const loadState = () => {
   try {
     const s = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
-    if (s && s.attendees && s.rosterVer === 9) return normState({ ...DEFAULT_STATE(), ...s });
+    if (s && s.attendees && s.rosterVer === 10) return normState({ ...DEFAULT_STATE(), ...s });
   } catch {}
   return DEFAULT_STATE();
 };
@@ -124,7 +124,9 @@ const mergeState = (local, remote) => {
   Object.entries(local.tombstones || {}).forEach(([k, v]) => { if (!(tomb[k] >= v)) tomb[k] = v; });
   const byId = new Map();
   const rv = Math.max(local.rosterVer || 0, remote.rosterVer || 0);
-  const pool = [...((remote.rosterVer || 0) === rv ? remote.attendees || [] : []), ...((local.rosterVer || 0) === rv ? local.attendees || [] : [])];
+  const same = (x) => (x.rosterVer || 0) === rv;
+  const manual = (x) => (x.attendees || []).filter(a => a.id >= 1e12); // 수기 추가 인원은 명단 판과 무관하게 보존
+  const pool = [...(same(remote) ? remote.attendees || [] : manual(remote)), ...(same(local) ? local.attendees || [] : manual(local))];
   pool.forEach(a => {
     if (rv >= 8 && a.id < 900) return; // 옛 판(43명 체계) 번호대는 새 판에서 받지 않음
     const t = tomb[a.id]; if (t && t >= (a.u || 0)) return;
@@ -196,8 +198,10 @@ const copyText = async (text, notify, fallbackId) => {
 const verNum = v => String(v || '0').split('.').map(Number).reduce((acc, n) => acc * 1000 + (n || 0), 0);
 const lsSafe = { get: (k, d) => { try { return localStorage.getItem(k) ?? d; } catch { return d; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch {} } };
 const honor = (a) => `${a.organization} ${a.name} ${a.position}님`;
+// 마스 얼라이언스 차담회 대상 표시(주황)
+const AllianceTag = ({ a, small }) => a && a.alliance ? <span className={`shrink-0 rounded font-bold bg-amber-400 text-amber-950 ${small ? 'text-[9px] px-1' : 'text-[10px] px-1 py-0.5'}`}>차담회</span> : null;
 // 내빈 사진(있을 때만 표시). size: 픽셀 너비, 세로는 4:5
-const Avatar = ({ a, size = 28, cls = '' }) => { const src = photoOf(a); if (!src) return null; return <img src={src} alt="" width={size} height={Math.round(size * 1.25)} loading="lazy" className={`shrink-0 rounded object-cover bg-slate-200 ring-1 ring-black/10 ${cls}`} style={{ width: size, height: Math.round(size * 1.25) }} />; };
+const Avatar = ({ a, size = 28, cls = '' }) => { const src = photoOf(a); if (!src) return null; return <img src={src} alt="" width={size} height={Math.round(size * 1.25)} loading="lazy" className={`shrink-0 rounded object-cover bg-slate-200 ${a.alliance ? 'ring-2 ring-amber-400' : 'ring-1 ring-black/10'} ${cls}`} style={{ width: size, height: Math.round(size * 1.25) }} />; };
 
 // =====================================================================
 // 메인
@@ -544,7 +548,7 @@ function BoardView({ attendees, stats, program, isAdmin, setStatus, toggleSpeech
 
   const present = attendees.filter(a => PRESENT.includes(a.status)).sort((a, b) => (b.seatedTime || b.arrivalTime || '').localeCompare(a.seatedTime || a.arrivalTime || ''));
   const categories = GRADES.filter(g => attendees.some(a => a.grade === g));
-  const visible = attendees.filter(a => (filter === '전체' || a.status === filter || (filter === '인사말씀' && a.speech)) && (!q || `${a.name}${a.organization}${a.position}`.includes(q)));
+  const visible = attendees.filter(a => (filter === '전체' || a.status === filter || (filter === '인사말씀' && a.speech) || (filter === '차담회' && a.alliance)) && (!q || `${a.name}${a.organization}${a.position}`.includes(q)));
   const current = program.findIndex((p, i) => { const n = program[i + 1]; return clock >= p.time && (!n || clock < n.time); });
 
   return (
@@ -582,8 +586,8 @@ function BoardView({ attendees, stats, program, isAdmin, setStatus, toggleSpeech
           <button onClick={() => setBig(v => !v)} className={`btn px-2 sm:order-last ${big ? 'btn-dark' : 'btn-outline'}`}>{big ? '크게 ✓' : '크게'}</button>
           <button onClick={printSpeech} className="btn btn-primary px-2 sm:order-last"><Printer className="w-3 h-3" />인사말씀 인쇄 ({stats.speakersPresent}/{stats.speakers})</button>
           <div className="w-full sm:w-auto flex gap-1 overflow-x-auto">
-            {['전체', ...STATUSES.filter(x => x !== '미도착'), '인사말씀'].map(f => {
-              const n = f === '전체' ? attendees.length : f === '인사말씀' ? attendees.filter(a => a.speech).length : attendees.filter(a => a.status === f).length;
+            {['전체', ...STATUSES.filter(x => x !== '미도착'), '인사말씀', '차담회'].map(f => {
+              const n = f === '전체' ? attendees.length : f === '인사말씀' ? attendees.filter(a => a.speech).length : f === '차담회' ? attendees.filter(a => a.alliance).length : attendees.filter(a => a.status === f).length;
               return <button key={f} onClick={() => setFilter(f)} className={`shrink-0 px-2 py-0.5 rounded-md text-[11px] font-semibold border ${filter === f ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'}`}>{f} <span className="opacity-60">{n}</span></button>;
             })}
           </div>
@@ -603,7 +607,7 @@ function BoardView({ attendees, stats, program, isAdmin, setStatus, toggleSpeech
               </div>
               <div className={`grid gap-1 ${big ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3'}`}>
                 {list.map(a => {
-                  const tone = PRESENT.includes(a.status) ? 'border-l-emerald-500 bg-emerald-50' : a.status === '불참' ? 'border-l-rose-400 bg-rose-50/60 opacity-75' : a.status === '퇴장' ? 'border-l-slate-300 bg-slate-50 opacity-70' : 'border-l-slate-300 bg-white';
+                  const tone = PRESENT.includes(a.status) ? 'border-l-emerald-500 bg-emerald-50' : a.status === '불참' ? 'border-l-rose-400 bg-rose-50/60 opacity-75' : a.status === '퇴장' ? 'border-l-slate-300 bg-slate-50 opacity-70' : a.alliance ? 'border-l-amber-400 bg-amber-50/70' : 'border-l-slate-300 bg-white';
                   const badge = PRESENT.includes(a.status) ? 'bg-emerald-600 text-white' : a.status === '불참' ? 'bg-rose-500 text-white' : a.status === '퇴장' ? 'bg-slate-400 text-white' : 'bg-slate-200 text-slate-600';
                   return (
                     <div key={a.id} onClick={() => isAdmin && setSheet(a.id)} className={`rounded-md border border-slate-200 border-l-4 pl-2 pr-2 ${big ? 'py-1.5' : 'py-1'} ${tone} ${isAdmin ? 'cursor-pointer hover:border-indigo-300 active:bg-slate-100' : ''} flex items-center gap-2`}>
@@ -613,6 +617,7 @@ function BoardView({ attendees, stats, program, isAdmin, setStatus, toggleSpeech
                         <span className={`shrink-0 font-bold text-slate-900 leading-tight ${big ? 'text-xl' : 'text-[16px]'}`}>{a.name}</span>
                         <span className={`min-w-0 truncate text-slate-700 ${big ? 'text-sm' : 'text-[12px]'}`}>{a.position}</span>
                         {a.speech && <span className="shrink-0 text-[10px] font-bold px-1 rounded bg-violet-600 text-white">{a.speechType}</span>}
+                        <AllianceTag a={a} />
                         {a.status !== '미도착' && <span className={`ml-auto shrink-0 px-1.5 py-0.5 rounded font-bold text-[11px] ${badge}`}>{a.status}</span>}
                       </div>
                       <div className="flex items-center gap-1.5 text-[11px] text-slate-400 min-w-0 leading-tight mt-0.5">
@@ -650,7 +655,7 @@ function ActionSheet({ a, onClose, setStatus, toggleSpeech, toggleIntro, updateA
         <div className="flex items-start gap-3 mb-3">
           <Avatar a={a} size={96} cls="rounded-lg" />
           <div className="min-w-0">
-            <div className="text-2xl font-bold leading-tight">{a.name} <span className="text-base font-medium text-slate-600">{a.position}</span></div>
+            <div className="text-2xl font-bold leading-tight">{a.name} <span className="text-base font-medium text-slate-600">{a.position}</span> <AllianceTag a={a} /></div>
             <div className="text-sm text-slate-500">{a.organization} · <span className="font-mono">{a.seat}</span></div>
           </div>
           <div className="ml-auto flex items-center gap-2 shrink-0"><StatusChip status={a.status} /><button onClick={onClose} className="text-slate-400"><X className="w-5 h-5" /></button></div>
@@ -740,6 +745,7 @@ function OrderList({ ids, attendees, setOrder, editable, renderExtra, onRemove, 
                 <div className="flex items-baseline gap-1.5 min-w-0">
                   <span className="text-[17px] font-bold text-slate-900 whitespace-nowrap">{a.name}</span>
                   <span className="text-[13px] text-slate-600 truncate">{a.position}</span>
+                  <AllianceTag a={a} small />
                 </div>
                 <div className="text-[11px] text-slate-400 truncate">{a.organization}</div>
               </div>
@@ -1067,13 +1073,14 @@ function ManageView({ applyProtocol, onQuickAdd, attendees, updateAttendee, addA
       {/* 핸드폰: 2줄 카드 (이름 줄 + 단추 줄) */}
       <div className="md:hidden space-y-1">
         {shown.map(a => (
-          <div key={a.id} className={`rounded-md border border-l-4 pl-1.5 pr-1.5 py-1 ${PRESENT.includes(a.status) ? 'border-l-red-600 bg-red-50 border-red-200' : a.status === '불참' ? 'border-l-slate-400 bg-slate-100 border-slate-200 opacity-80' : 'border-l-slate-300 border-slate-200'} flex items-center gap-1.5`}>
+          <div key={a.id} className={`rounded-md border border-l-4 pl-1.5 pr-1.5 py-1 ${PRESENT.includes(a.status) ? 'border-l-red-600 bg-red-50 border-red-200' : a.status === '불참' ? 'border-l-slate-400 bg-slate-100 border-slate-200 opacity-80' : a.alliance ? 'border-l-amber-400 bg-amber-50/60 border-amber-200' : 'border-l-slate-300 border-slate-200'} flex items-center gap-1.5`}>
             <Avatar a={a} size={44} />
             <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5 min-w-0">
               <span className="shrink-0 text-[11px] font-bold text-indigo-600 tabular-nums w-5">{rankOf(a) === 999 ? '-' : rankOf(a)}</span>
               <span className="shrink-0 text-[16px] font-bold leading-tight">{a.name}</span>
               <span className="shrink-0 text-[12px] text-slate-700">{a.position}</span>
+              <AllianceTag a={a} small />
               <span className="min-w-0 truncate text-[11px] text-slate-400"><b className="text-slate-600">{a.grade}</b>{a.rsvp === 'T' ? <span className="text-amber-600"> △</span> : a.rsvp === 'X' ? <span className="text-rose-500"> ✕</span> : a.rsvp === '' ? ' –' : ''} · {a.organization}{a.seat ? ` · ${a.seat}` : ''}</span>
               <span className="ml-auto shrink-0"><StatusChip status={a.status} small /></span>
               <button onClick={() => setEdit(a.id)} className="shrink-0 p-1 text-slate-400"><Pencil className="w-3.5 h-3.5" /></button>
@@ -1477,6 +1484,7 @@ function GuideView({ state, stats, sync, isAdmin }) {
           <li><b>VIP지정석</b>: 좌석 탭에서 「의전순 자동 배정」 또는 빈 좌석을 눌러 직접 배정. 1열(빨간 테두리)이 지정석입니다. 열별 좌석 수는 「열 구성」에서 실제 홀에 맞게 바꿉니다.</li>
           <li><b>인사말씀 지정</b>: 체크 창의 「인사말씀」 또는 인사말씀·소개 탭의 「대상 추가」. 순서는 줄을 누르고 → 들어갈 자리를 누르면 바뀝니다.</li>
           <li><b>인쇄</b>: 현황판 「인사말씀 인쇄」(노트북 크롬 권장). 도착한 사람만 멘트에 들어가고, 도착 체크가 안 된 대상은 아래에 따로 표시됩니다.</li>
+          <li><b>색 구분</b>: <span className="font-bold text-red-600">빨강</span>=도착, 회색=불참, <span className="font-bold text-violet-600">보라</span>=인사말씀, <span className="font-bold text-amber-600">주황「차담회」</span>=마스 얼라이언스 차담회 대상(10시, VIP 간담회장 안내). 현황판 위 「차담회」 단추로 대상만 모아 볼 수 있습니다.</li>
           <li><b>내빈 사진</b>: 주요 내빈 사진은 담당자(전명구)에게 「성명.jpg」 파일로 보내면 배포에 포함됩니다(현재 {PHOTO_COUNT}명 등록). 사진이 있는 내빈은 현황판·내빈 관리·인사말씀 목록에 얼굴이 표시되고, 카드를 누르면 크게 보입니다. 화면 자료에 사진이 묻어가지 않아 통신량·비용에 영향이 없습니다.</li>
           <li><b>카톡 보고</b>: 머리글 「보고」 → 전체·참석·불참·인사말씀 중 선택 → 「카톡으로 보내기」 또는 「복사」 후 대화방에 붙여넣기.</li>
         </ul>

@@ -30,14 +30,14 @@ with sync_playwright() as p:
     v=dev(390, cache=old_cache)
     v.get_by_role('button', name='참관인으로 보기').click(); v.wait_for_timeout(600)
     s=st(v); names=[a['name'] for a in s['attendees']]
-    ck('1 옛 캐시 참관인: 새 명단 221명으로 교체', len(s['attendees'])==221 and s.get('rosterVer')==9)
+    ck('1 옛 캐시 참관인: 새 명단 253명으로 교체', len(s['attendees'])==253 and s.get('rosterVer')==10)
     ck('2 옛 사람 기록 제거', not any(n.startswith('옛사람') for n in names))
     ck('3 서버 옛 자료(43명)는 아직 그대로(참관인은 쓰기 없음)', len(srv['data']['attendees'])==44)
     # 2) 관리자 접속 → 서버가 새 명단으로 바뀌어야
     a=dev(1280)
     a.get_by_role('button', name='운영진(관리자) 입장').click(); a.locator('input[type=password]').fill('1234'); a.get_by_role('button', name='입장', exact=True).click(); a.wait_for_timeout(2500)
     d=srv['data']
-    ck('4 서버 새 명단 221명·rosterVer 9', len(d['attendees'])==221 and d.get('rosterVer')==9 and d.get('appVersion','').startswith('4.'))
+    ck('4 서버 새 명단 253명·rosterVer 10', len(d['attendees'])==253 and d.get('rosterVer')==10 and d.get('appVersion','').startswith('4.'))
     ck('5 서버에 옛 id(1~44) 없음', all(x['id']>=901 for x in d['attendees']))
     ck('6 좌석 구성 서버 저장', d.get('seatZones') and len(d['seatZones'])==2)
     # 3) 관리자 체크 → 참관인 반영
@@ -59,7 +59,7 @@ with sync_playwright() as p:
     ck('10 자동 배정 42석', len(st(a)['seatMap'])==42)
     a.locator('header').get_by_role('button', name='보고').click(); a.wait_for_timeout(300)
     txt=a.locator('#kakao-text').input_value()
-    ck('11 카톡 보고 예정 182·참석 수 반영', '예정 221명' in txt or '예정 183명' in txt)
+    ck('11 카톡 보고 예정 182·참석 수 반영', '예정 253명' in txt or '예정 183명' in txt)
     ck('12 화면 오류 없음', not errs)
     for r in R: print(*r)
     if errs: print(errs[:3])
