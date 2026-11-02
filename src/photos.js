@@ -7,7 +7,7 @@ for (const [p, url] of Object.entries(mods)) {
   PHOTOS[base] = url;
 }
 // 동명이인: 사진 주인의 소속에 들어 있는 글자. 소속이 맞지 않으면 사진을 붙이지 않음
-const ONLY = { '김승원': ['수원시갑', '수원 갑'], '김태형': ['경기도의회'], '김진영': ['의과학대'], '한상선': ['FTA'], '김미영': ['시의회'], '김덕천': ['오케이', '로지웰'] };
+const ONLY = { '김승원': ['수원시갑', '수원 갑'], '김태형': ['경기도의회'], '김진영': ['의과학대'], '한상선': ['FTA'], '김미영': ['시의회'], '김덕천': ['오케이', '로지웰'], '김현정': ['아주대', '산학'] };
 export const photoOf = (a) => {
   if (!a || !a.name) return null;
   const n = String(a.name).trim().normalize('NFC');

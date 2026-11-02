@@ -32,7 +32,7 @@ with sync_playwright() as p:
     ck('4 동명이인: 김미영 2명(동탄·시의회)·김승원 1명·그 외 중복 없음', names.count('김미영')==2 and names.count('김승원')==1 and len(names)==len(set(names))+1)
     a=dev(1280); a.get_by_role('button', name='운영진(관리자) 입장').click(); a.locator('input[type=password]').fill('1234'); a.get_by_role('button', name='입장', exact=True).click(); a.wait_for_timeout(3000)
     d=srv['data']
-    ck('5 관리자 접속 → 서버가 rv9·221명으로 전환', d['rosterVer']==9 and len(d['attendees'])==221 and d['appVersion']=='4.5.1')
+    ck('5 관리자 접속 → 서버가 rv9·221명으로 전환', d['rosterVer']==9 and len(d['attendees'])==221 and d['appVersion']=='4.5.2')
     ck('6 서버 좌석 배정 비움(옛 번호 매핑 제거)', not d.get('seatMap'))
     ck('7 인사말씀 기본(정명근·이계철·김종민·하정우)', [next(x['name'] for x in d['attendees'] if x['id']==i) for i in d['speechOrder']]==['정명근','이계철','김종민','하정우'])
     v.wait_for_timeout(5000); s2=st(v)
