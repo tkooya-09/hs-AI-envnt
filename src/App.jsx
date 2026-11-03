@@ -9,7 +9,7 @@ import { photoOf, PHOTO_COUNT } from './photos.js';
 // =====================================================================
 
 const STORE_KEY = 'mars-vip-platform-v2';
-const APP_VERSION = '4.7.0';
+const APP_VERSION = '4.7.1';
 
 // ---------- 초기 자료 ----------
 const DEFAULT_EVENT = {
@@ -316,7 +316,7 @@ export default function App() {
     attendees: s.attendees.map(a => a.id === id ? { ...a, speech: on, u: now() } : a),
     speechOrder: on ? (s.speechOrder.includes(id) ? s.speechOrder : [...s.speechOrder, id]) : s.speechOrder.filter(x => x !== id),
   }));
-  const toggleMeal = (id, on) => updateAttendee(id, { meal: !!on });
+  const toggleMeal = (id, on, no) => updateAttendee(id, { meal: !!on, mealNo: on ? (no || null) : null });
   const toggleIntro = (id, on) => patchMeta(s => ({
     attendees: s.attendees.map(a => a.id === id ? { ...a, intro: on, u: now() } : a),
     introOrder: on ? (s.introOrder.includes(id) ? s.introOrder : [...s.introOrder, id]) : s.introOrder.filter(x => x !== id),
@@ -1222,14 +1222,15 @@ function SettingsView({ state, patch, setState, notify, sync, askUser, changePin
 function MealView({ attendees, isAdmin, toggleMeal, setStatus, notify }) {
   const [q, setQ] = useState('');
   const [adding, setAdding] = useState(false);
-  const list = attendees.filter(a => a.meal).sort(byRank);
+  const list = attendees.filter(a => a.meal).sort((x, y) => (x.mealNo || 999) - (y.mealNo || 999) || byRank(x, y));
   const present = list.filter(a => PRESENT.includes(a.status));
   const qq = q.trim();
   const cands = qq ? attendees.filter(a => !a.meal && (a.name + a.organization + a.position).includes(qq)).sort(byRank).slice(0, 20) : [];
   const text = [`■ MARS 2026 오찬 명단 ${list.length}명 (도착 ${present.length}·미도착 ${list.filter(a => a.status === '미도착').length}·불참 ${list.filter(a => a.status === '불참').length}) ${nowHM()} 기준`,
-    ...list.map((a, i) => ` ${i + 1}) ${a.name} ${a.position}(${a.organization})${PRESENT.includes(a.status) ? ' ✔' : a.status === '불참' ? ' 불참' : ' —'}`)].join('\n');
+    ...list.map((a, i) => ` ${a.mealNo || i + 1}) ${a.name} ${a.position}(${a.organization})${PRESENT.includes(a.status) ? ' ✔' : a.status === '불참' ? ' 불참' : ' —'}`)].join('\n');
   const Row = ({ a, add }) => (
     <div className={`flex items-center gap-2 px-2 py-1.5 border-b border-slate-100 ${PRESENT.includes(a.status) ? 'bg-red-50/70' : a.status === '불참' ? 'bg-slate-100 opacity-70' : 'bg-white'}`}>
+      {!add && <span className="w-6 text-center text-sm font-bold text-slate-500 tabular-nums shrink-0">{a.mealNo || ''}</span>}
       <Avatar a={a} size={34} />
       <div className="min-w-0 flex-1 leading-tight">
         <div className="flex items-center gap-1.5 min-w-0"><span className="text-[16px] font-bold whitespace-nowrap">{a.name}</span><span className="text-[12px] text-slate-600 truncate">{a.position}</span><AllianceTag a={a} small /></div>
@@ -1237,7 +1238,7 @@ function MealView({ attendees, isAdmin, toggleMeal, setStatus, notify }) {
       </div>
       <StatusChip status={a.status} small />
       {isAdmin && (add
-        ? <button onClick={() => { toggleMeal(a.id, true); notify(`${a.name} 식사 명단에 추가`); }} className="shrink-0 px-2 py-1 rounded border border-lime-500 bg-lime-600 text-white text-[11px] font-bold">+ 식사</button>
+        ? <button onClick={() => { toggleMeal(a.id, true, Math.max(0, ...attendees.filter(x => x.meal).map(x => x.mealNo || 0)) + 1); notify(`${a.name} 식사 명단에 추가`); }} className="shrink-0 px-2 py-1 rounded border border-lime-500 bg-lime-600 text-white text-[11px] font-bold">+ 식사</button>
         : <button onClick={() => { toggleMeal(a.id, false); notify(`${a.name} 식사 명단에서 제외`); }} className="shrink-0 px-2 py-1 rounded border border-slate-300 text-slate-500 text-[11px]">제외</button>)}
     </div>
   );
@@ -1250,7 +1251,7 @@ function MealView({ attendees, isAdmin, toggleMeal, setStatus, notify }) {
       </div>
       <div className="card p-2 sm:p-3">
         <div className="flex flex-wrap items-center gap-1.5 mb-2">
-          <h2 className="section-title"><Utensils className="w-4 h-4" />오찬 명단 <span className="text-xs font-normal text-slate-500">의전순</span></h2>
+          <h2 className="section-title"><Utensils className="w-4 h-4" />오찬 명단 <span className="text-xs font-normal text-slate-500">연번순</span></h2>
           <button onClick={() => copyText(text, notify, 'meal-text')} className="btn btn-outline ml-auto"><Copy className="w-3 h-3" />카톡용 복사</button>
           {isAdmin && <button onClick={() => setAdding(v => !v)} className={`btn ${adding ? 'btn-dark' : 'btn-primary'}`}><Plus className="w-3 h-3" />{adding ? '추가 닫기' : '명단에 추가'}</button>}
         </div>
