@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Users, Crown, MapPin, Clock, BarChart3, Mic2, FileText, Bell, X, Lock, Unlock, Settings, Copy, Plus, Trash2, GripVertical, Download, Upload, RotateCcw, ListOrdered, Eye, LogIn, BookOpen, Printer, UserPlus, MessageCircle, Pencil, Search, Share2, ArrowUpDown } from 'lucide-react';
+import { Users, Crown, MapPin, Clock, BarChart3, Mic2, FileText, Bell, X, Lock, Unlock, Settings, Copy, Plus, Trash2, GripVertical, Download, Upload, RotateCcw, ListOrdered, Eye, LogIn, BookOpen, Printer, UserPlus, MessageCircle, Pencil, Search, Share2, ArrowUpDown, Utensils } from 'lucide-react';
 import { ROSTER } from './roster.js';
 import { photoOf, PHOTO_COUNT } from './photos.js';
 
@@ -9,7 +9,7 @@ import { photoOf, PHOTO_COUNT } from './photos.js';
 // =====================================================================
 
 const STORE_KEY = 'mars-vip-platform-v2';
-const APP_VERSION = '4.6.2';
+const APP_VERSION = '4.7.0';
 
 // ---------- 초기 자료 ----------
 const DEFAULT_EVENT = {
@@ -316,6 +316,7 @@ export default function App() {
     attendees: s.attendees.map(a => a.id === id ? { ...a, speech: on, u: now() } : a),
     speechOrder: on ? (s.speechOrder.includes(id) ? s.speechOrder : [...s.speechOrder, id]) : s.speechOrder.filter(x => x !== id),
   }));
+  const toggleMeal = (id, on) => updateAttendee(id, { meal: !!on });
   const toggleIntro = (id, on) => patchMeta(s => ({
     attendees: s.attendees.map(a => a.id === id ? { ...a, intro: on, u: now() } : a),
     introOrder: on ? (s.introOrder.includes(id) ? s.introOrder : [...s.introOrder, id]) : s.introOrder.filter(x => x !== id),
@@ -401,6 +402,7 @@ export default function App() {
     ...(isAdmin ? [{ id: 'manage', label: '내빈 관리', icon: Users, on: 'bg-emerald-600 text-white shadow', off: 'bg-emerald-50 text-emerald-700' }] : []),
     { id: 'speech', label: '인사말씀·소개', icon: Mic2, on: 'bg-violet-600 text-white shadow', off: 'bg-violet-50 text-violet-700' },
     { id: 'seat', label: '좌석 현황', icon: MapPin, on: 'bg-rose-600 text-white shadow', off: 'bg-rose-50 text-rose-700' },
+    { id: 'meal', label: '식사', icon: Utensils, on: 'bg-lime-600 text-white shadow', off: 'bg-lime-50 text-lime-700' },
     { id: 'report', label: '결과 요약', icon: FileText, on: 'bg-amber-500 text-white shadow', off: 'bg-amber-50 text-amber-700' },
     ...(isAdmin ? [{ id: 'settings', label: '설정', icon: Settings, on: 'bg-slate-700 text-white shadow', off: 'bg-slate-100 text-slate-600' }] : []),
     { id: 'guide', label: '안내', icon: BookOpen, on: 'bg-sky-600 text-white shadow', off: 'bg-sky-50 text-sky-700' },
@@ -457,6 +459,7 @@ export default function App() {
           setSpeechOrder={o => patchMeta(() => ({ speechOrder: o }))} setIntroOrder={o => patchMeta(() => ({ introOrder: o }))}
           updateAttendee={updateAttendee} toggleSpeech={toggleSpeech} toggleIntro={toggleIntro} notify={notify} />}
         {view === 'seat' && <SeatView attendees={attendees} zones={state.seatZones || DEFAULT_SEATZONES} seatMap={state.seatMap || {}} isAdmin={isAdmin} setStatus={setStatus} assignSeat={assignSeat} setZones={setZones} applyProtocol={applyProtocol} askUser={askUser} notify={notify} />}
+        {view === 'meal' && <MealView attendees={attendees} isAdmin={isAdmin} toggleMeal={toggleMeal} setStatus={setStatus} notify={notify} />}
         {view === 'report' && <ReportView stats={stats} attendees={attendees} event={event} speechOrder={speechOrder} notify={notify} />}
         {view === 'manage' && isAdmin && <ManageView applyProtocol={applyProtocol} onQuickAdd={() => setQuickAdd(true)} attendees={attendees} updateAttendee={updateAttendee} addAttendee={addAttendee} removeAttendee={removeAttendee} setStatus={setStatus} toggleSpeech={toggleSpeech} toggleIntro={toggleIntro} notify={notify} askUser={askUser} patch={(fn) => patchMeta(s => { const r = fn(s); if (r.attendees) { const t = now(); const prev = new Map(s.attendees.map(a => [a.id, a])); r.attendees = r.attendees.map(a => a === prev.get(a.id) ? a : { ...a, u: t }); } return r; })} />}
         {view === 'guide' && <GuideView state={state} stats={stats} sync={sync} isAdmin={isAdmin} />}
@@ -1213,6 +1216,60 @@ function SettingsView({ state, patch, setState, notify, sync, askUser, changePin
 // =====================================================================
 // 결과 요약
 // =====================================================================
+// =====================================================================
+// 식사(오찬) 명단
+// =====================================================================
+function MealView({ attendees, isAdmin, toggleMeal, setStatus, notify }) {
+  const [q, setQ] = useState('');
+  const [adding, setAdding] = useState(false);
+  const list = attendees.filter(a => a.meal).sort(byRank);
+  const present = list.filter(a => PRESENT.includes(a.status));
+  const qq = q.trim();
+  const cands = qq ? attendees.filter(a => !a.meal && (a.name + a.organization + a.position).includes(qq)).sort(byRank).slice(0, 20) : [];
+  const text = [`■ MARS 2026 오찬 명단 ${list.length}명 (도착 ${present.length}·미도착 ${list.filter(a => a.status === '미도착').length}·불참 ${list.filter(a => a.status === '불참').length}) ${nowHM()} 기준`,
+    ...list.map((a, i) => ` ${i + 1}) ${a.name} ${a.position}(${a.organization})${PRESENT.includes(a.status) ? ' ✔' : a.status === '불참' ? ' 불참' : ' —'}`)].join('\n');
+  const Row = ({ a, add }) => (
+    <div className={`flex items-center gap-2 px-2 py-1.5 border-b border-slate-100 ${PRESENT.includes(a.status) ? 'bg-red-50/70' : a.status === '불참' ? 'bg-slate-100 opacity-70' : 'bg-white'}`}>
+      <Avatar a={a} size={34} />
+      <div className="min-w-0 flex-1 leading-tight">
+        <div className="flex items-center gap-1.5 min-w-0"><span className="text-[16px] font-bold whitespace-nowrap">{a.name}</span><span className="text-[12px] text-slate-600 truncate">{a.position}</span><AllianceTag a={a} small /></div>
+        <div className="text-[11px] text-slate-400 truncate">{a.organization}{a.arrivalTime ? ` · ${a.arrivalTime}` : ''}</div>
+      </div>
+      <StatusChip status={a.status} small />
+      {isAdmin && (add
+        ? <button onClick={() => { toggleMeal(a.id, true); notify(`${a.name} 식사 명단에 추가`); }} className="shrink-0 px-2 py-1 rounded border border-lime-500 bg-lime-600 text-white text-[11px] font-bold">+ 식사</button>
+        : <button onClick={() => { toggleMeal(a.id, false); notify(`${a.name} 식사 명단에서 제외`); }} className="shrink-0 px-2 py-1 rounded border border-slate-300 text-slate-500 text-[11px]">제외</button>)}
+    </div>
+  );
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+        <KPI label="식사 대상" value={list.length} tone="slate" />
+        <KPI label="도착" value={present.length} tone="emerald" />
+        <KPI label="미도착·불참" value={list.length - present.length} tone="rose" />
+      </div>
+      <div className="card p-2 sm:p-3">
+        <div className="flex flex-wrap items-center gap-1.5 mb-2">
+          <h2 className="section-title"><Utensils className="w-4 h-4" />오찬 명단 <span className="text-xs font-normal text-slate-500">의전순</span></h2>
+          <button onClick={() => copyText(text, notify, 'meal-text')} className="btn btn-outline ml-auto"><Copy className="w-3 h-3" />카톡용 복사</button>
+          {isAdmin && <button onClick={() => setAdding(v => !v)} className={`btn ${adding ? 'btn-dark' : 'btn-primary'}`}><Plus className="w-3 h-3" />{adding ? '추가 닫기' : '명단에 추가'}</button>}
+        </div>
+        {isAdmin && adding && (
+          <div className="mb-2 p-2 rounded-lg border border-lime-300 bg-lime-50">
+            <input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="이름·소속 검색 → 「+ 식사」" className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm" />
+            {qq && <div className="mt-1 rounded border border-slate-200 bg-white max-h-64 overflow-y-auto">{cands.length ? cands.map(a => <Row key={a.id} a={a} add />) : <div className="text-xs text-slate-400 p-3">일치하는 내빈이 없습니다</div>}</div>}
+          </div>
+        )}
+        <div className="rounded-lg border border-slate-200 overflow-hidden">
+          {list.length ? list.map(a => <Row key={a.id} a={a} />) : <div className="text-xs text-slate-400 text-center py-8">식사 명단이 비어 있습니다{isAdmin ? ' — 「명단에 추가」로 넣으세요' : ''}</div>}
+        </div>
+        <textarea id="meal-text" readOnly value={text} className="sr-only" />
+        <div className="text-[11px] text-slate-400 mt-2">※ 도착 여부는 현황판 체크와 같은 자료입니다. 명단 추가·제외는 관리자만, 모든 기기에 바로 공유됩니다.</div>
+      </div>
+    </div>
+  );
+}
+
 function ReportView({ stats, attendees, event, speechOrder, notify }) {
   const speakers = speakerList(attendees, speechOrder);
   const text = `▣ ${event.name} 내빈 참석 결과 (${new Date().toLocaleString('ko-KR')} 기준)
