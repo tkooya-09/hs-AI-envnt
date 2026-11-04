@@ -9,7 +9,10 @@ import { photoOf, PHOTO_COUNT } from './photos.js';
 // =====================================================================
 
 const STORE_KEY = 'mars-vip-platform-v2';
-const APP_VERSION = '4.7.1';
+const APP_VERSION = '4.8.0';
+// 행사 종료 후 잠금: 참관인 입장을 막고 비밀번호가 있는 운영진만 입장
+const LOCKED = true;
+const CONTACT = '플랫폼 문의: 화성특례시 AI스마트전략실 AI전략팀 전명구 주무관 (☎ 3652)';
 
 // ---------- 초기 자료 ----------
 const DEFAULT_EVENT = {
@@ -211,7 +214,7 @@ export default function App() {
   const [isAdmin, setIsAdmin] = useState(() => { try { const flag = sessionStorage.getItem('mars-admin') === '1' || localStorage.getItem('mars-admin-keep') === '1'; return SYNC_ON ? flag && !!pinStore.get() : flag; } catch { return false; } });
   const [view, setView] = useState('board');
   const [loginOpen, setLoginOpen] = useState(false);
-  const [gateOpen, setGateOpen] = useState(() => { try { return !(sessionStorage.getItem('mars-admin') === '1' || localStorage.getItem('mars-admin-keep') === '1' || localStorage.getItem('mars-role')); } catch { return true; } });
+  const [gateOpen, setGateOpen] = useState(() => { try { return !(sessionStorage.getItem('mars-admin') === '1' || localStorage.getItem('mars-admin-keep') === '1' || (!LOCKED && localStorage.getItem('mars-role'))); } catch { return true; } });
   const [quickAdd, setQuickAdd] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [toast, setToast] = useState(null);
@@ -227,7 +230,7 @@ export default function App() {
   const busyRef = useRef(false);
   const pendingRef = useRef(false);  // 연결 끊긴 동안 못 올린 변경이 있음
   const [newVer, setNewVer] = useState(null);
-  const kickOut = () => { setIsAdmin(false); pinStore.clear(); try { sessionStorage.removeItem('mars-admin'); localStorage.removeItem('mars-admin-keep'); } catch {} setToast('관리자 비밀번호가 바뀌었습니다. 다시 입장하세요'); };
+  const kickOut = () => { setIsAdmin(false); pinStore.clear(); try { sessionStorage.removeItem('mars-admin'); localStorage.removeItem('mars-admin-keep'); } catch {} if (LOCKED) setGateOpen(true); setToast('관리자 비밀번호가 바뀌었습니다. 다시 입장하세요'); };
 
   // 서버 → 내 기기 (바뀐 경우에만 내려받음)
   const pull = async (force) => {
@@ -395,7 +398,7 @@ export default function App() {
     if (ok) pinStore.set(newPin, lsSafe.get('mars-admin-keep', '') === '1');
     return ok;
   };
-  const logout = () => { setIsAdmin(false); pinStore.clear(); try { sessionStorage.removeItem('mars-admin'); localStorage.removeItem('mars-admin-keep'); } catch {} if (['manage', 'settings'].includes(view)) setView('board'); notify('조회 모드로 전환되었습니다'); };
+  const logout = () => { setIsAdmin(false); pinStore.clear(); try { sessionStorage.removeItem('mars-admin'); localStorage.removeItem('mars-admin-keep'); } catch {} if (LOCKED) setGateOpen(true); if (['manage', 'settings'].includes(view)) setView('board'); notify('조회 모드로 전환되었습니다'); };
 
   const tabs = [
     { id: 'board', label: '현황판', icon: BarChart3, on: 'bg-indigo-600 text-white shadow', off: 'bg-indigo-50 text-indigo-700' },
@@ -472,7 +475,7 @@ export default function App() {
       </footer>
 
       {ask && <AskModal ask={ask} onDone={v => { ask.resolve(v); setAsk(null); }} />}
-      {gateOpen && !isAdmin && <RoleGate event={event} onViewer={() => { lsSafe.set('mars-role', 'viewer'); setGateOpen(false); }} onAdmin={() => { setGateOpen(false); setLoginOpen(true); }} />}
+      {gateOpen && !isAdmin && <RoleGate event={event} onViewer={() => { lsSafe.set('mars-role', 'viewer'); setGateOpen(false); }} onAdmin={() => { if (!LOCKED) setGateOpen(false); setLoginOpen(true); }} />}
       {loginOpen && <LoginModal onClose={() => setLoginOpen(false)} onLogin={login} />}
       {quickAdd && <QuickAddModal onClose={() => setQuickAdd(false)} attendees={attendees} onAddRoster={(i) => { addFromRoster(i); setQuickAdd(false); notify(`${ROSTER[i][4]} ${ROSTER[i][3]}님을 도착으로 등록했습니다`); }} onAdd={(d) => { addAttendee(d); setQuickAdd(false); notify(`${d.name}님을 도착으로 추가했습니다`); }} />}
       {reportOpen && <KakaoReportModal onClose={() => setReportOpen(false)} stats={stats} attendees={attendees} event={event} speechOrder={speechOrder} notify={notify} />}
@@ -524,7 +527,7 @@ function LoginModal({ onClose, onLogin }) {
   const [busy, setBusy] = useState(false);
   const submit = async (e) => { e.preventDefault(); if (busy || !pin) return; setBusy(true); const ok = await onLogin(pin, keep); setBusy(false); if (!ok) { setErr(true); setPin(''); } };
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/40 z-[80] flex items-center justify-center p-4" onClick={onClose}>
       <form onSubmit={submit} onClick={e => e.stopPropagation()} className="bg-white rounded-lg p-5 w-full max-w-xs shadow-xl">
         <div className="flex items-center gap-2 mb-3"><Lock className="w-4 h-4 text-rose-600" /><h3 className="font-bold text-sm">관리자 모드 입장</h3><button type="button" onClick={onClose} className="ml-auto text-slate-400"><X className="w-4 h-4" /></button></div>
         <input autoFocus type="password" value={pin} onChange={e => { setPin(e.target.value); setErr(false); }} placeholder="비밀번호" className="w-full border border-slate-300 rounded px-3 py-2 text-sm mb-2 text-center tracking-widest" />
@@ -1629,23 +1632,29 @@ function RoleGate({ event, onViewer, onAdmin }) {
         <div className="mx-auto w-14 h-14 rounded-2xl bg-amber-400 text-slate-900 flex items-center justify-center shadow-lg mb-3"><Crown className="w-8 h-8" /></div>
         <div className="text-white text-xl font-bold leading-tight">{event.name}</div>
         <div className="text-slate-300 text-sm mb-6">{event.date} · {event.place}</div>
+        {LOCKED && (
+          <div className="mb-4 rounded-2xl bg-white/10 border border-white/20 px-4 py-3 text-left">
+            <div className="text-amber-300 text-sm font-bold mb-1">행사가 종료되어 비밀번호가 있는 운영진만 입장할 수 있습니다.</div>
+            <div className="text-slate-200 text-xs leading-relaxed">{CONTACT}</div>
+          </div>
+        )}
         <div className="space-y-3">
-          <button onClick={onViewer} className="w-full rounded-2xl bg-white p-4 text-left shadow-xl active:scale-[0.99] transition">
+          {!LOCKED && <button onClick={onViewer} className="w-full rounded-2xl bg-white p-4 text-left shadow-xl active:scale-[0.99] transition">
             <div className="flex items-center gap-3">
               <span className="w-11 h-11 shrink-0 rounded-xl bg-sky-100 text-sky-700 flex items-center justify-center"><Eye className="w-6 h-6" /></span>
               <span><b className="block text-base">참관인으로 보기</b><span className="text-xs text-slate-500">비밀번호 없이 실시간 현황 조회</span></span>
               <span className="ml-auto text-slate-300 text-xl">›</span>
             </div>
-          </button>
+          </button>}
           <button onClick={onAdmin} className="w-full rounded-2xl bg-rose-600 p-4 text-left shadow-xl active:scale-[0.99] transition">
             <div className="flex items-center gap-3">
               <span className="w-11 h-11 shrink-0 rounded-xl bg-white/20 text-white flex items-center justify-center"><Lock className="w-6 h-6" /></span>
-              <span className="text-white"><b className="block text-base">운영진(관리자) 입장</b><span className="text-xs text-rose-100">비밀번호 입력 · 도착 체크와 수정 가능</span></span>
+              <span className="text-white"><b className="block text-base">{LOCKED ? '비밀번호 입력 후 입장' : '운영진(관리자) 입장'}</b><span className="text-xs text-rose-100">{LOCKED ? '담당자에게 받은 비밀번호를 입력하세요' : '비밀번호 입력 · 도착 체크와 수정 가능'}</span></span>
               <span className="ml-auto text-rose-200 text-xl">›</span>
             </div>
           </button>
         </div>
-        <div className="text-[11px] text-slate-400 mt-5">화성특례시 AI스마트전략실 · 내빈 운영 플랫폼</div>
+        <div className="text-[11px] text-slate-400 mt-5">화성특례시 AI스마트전략실 · 내빈 운영 플랫폼{LOCKED ? ' · 문의 전명구 주무관(☎ 3652)' : ''}</div>
       </div>
     </div>
   );
