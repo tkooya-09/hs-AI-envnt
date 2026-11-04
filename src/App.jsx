@@ -9,7 +9,7 @@ import { photoOf, PHOTO_COUNT } from './photos.js';
 // =====================================================================
 
 const STORE_KEY = 'mars-vip-platform-v2';
-const APP_VERSION = '4.8.0';
+const APP_VERSION = '4.8.1';
 // 행사 종료 후 잠금: 참관인 입장을 막고 비밀번호가 있는 운영진만 입장
 const LOCKED = true;
 const CONTACT = '플랫폼 문의: 화성특례시 AI스마트전략실 AI전략팀 전명구 주무관 (☎ 3652)';
@@ -148,13 +148,14 @@ const mergeState = (local, remote) => {
 const syncHeaders = (pin) => ({ apikey: SYNC.key, Authorization: `Bearer ${SYNC.key}`, 'Content-Type': 'application/json', ...(pin ? { 'x-event-pin': pin } : {}) });
 const ROW = `${SYNC.url}/rest/v1/${SYNC.table}?id=eq.${SYNC.id}`;
 // 바뀐 시각만 먼저 확인(수십 바이트) → 바뀌었을 때만 전체 자료를 받음
-const syncHead = async () => {
-  const r = await fetch(`${ROW}&select=updated_at`, { headers: syncHeaders() });
+// 읽기에도 비밀번호를 함께 보냄(행사 종료 후 서버가 읽기에도 비밀번호를 요구)
+const syncHead = async (pin = pinStore.get()) => {
+  const r = await fetch(`${ROW}&select=updated_at`, { headers: syncHeaders(pin) });
   if (!r.ok) throw new Error('head ' + r.status);
   const rows = await r.json(); return rows[0]?.updated_at || null;
 };
-const syncPull = async () => {
-  const r = await fetch(`${ROW}&select=data,updated_at`, { headers: syncHeaders() });
+const syncPull = async (pin = pinStore.get()) => {
+  const r = await fetch(`${ROW}&select=data,updated_at`, { headers: syncHeaders(pin) });
   if (!r.ok) throw new Error('pull ' + r.status);
   const rows = await r.json(); return rows[0] || null;
 };
@@ -165,7 +166,7 @@ const syncPush = async (data, pin) => {
   const rows = await r.json(); if (!rows.length) throw new Error('PIN'); return rows[0].updated_at;
 };
 const syncCheckPin = async (pin) => {
-  const head = await syncHead();
+  const head = await syncHead(pin); if (!head) return false;
   const r = await fetch(`${ROW}&select=updated_at`, { method: 'PATCH', headers: { ...syncHeaders(pin), Prefer: 'return=representation' }, body: JSON.stringify({ updated_at: head }) });
   if (!r.ok) return false; const rows = await r.json(); return rows.length > 0;
 };
