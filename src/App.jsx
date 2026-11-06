@@ -9,7 +9,7 @@ import { photoOf, PHOTO_COUNT } from './photos.js';
 // =====================================================================
 
 const STORE_KEY = 'mars-vip-platform-v2';
-const APP_VERSION = '4.8.2';
+const APP_VERSION = '4.8.1';
 // 행사 종료 후 잠금: 참관인 입장을 막고 비밀번호가 있는 운영진만 입장
 const LOCKED = true;
 const CONTACT = '플랫폼 문의: 화성특례시 AI스마트전략실 AI전략팀 전명구 주무관 (☎ 3652)';
