@@ -1,22 +1,29 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
+import App from './App.jsx'
 import './index.css'
 
-// 행사 종료 안내 화면 — 명단·사진·실시간 자료는 모두 내려갔습니다.
-function Closed() {
-  return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg,#0f172a,#1e1b4b 60%,#0f172a)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, fontFamily: 'sans-serif' }}>
-      <div style={{ maxWidth: 420, textAlign: 'center', color: '#fff' }}>
-        <div style={{ width: 56, height: 56, borderRadius: 16, background: '#fbbf24', color: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px', fontSize: 28 }}>✓</div>
-        <div style={{ fontSize: 20, fontWeight: 800 }}>AI EXPO 「MARS 2026」 개막식</div>
-        <div style={{ color: '#cbd5e1', fontSize: 14, marginTop: 4 }}>2026. 11. 3.(화) · 코엑스 3층 오디토리움</div>
-        <div style={{ marginTop: 20, background: 'rgba(255,255,255,.1)', border: '1px solid rgba(255,255,255,.2)', borderRadius: 16, padding: '14px 16px', textAlign: 'left' }}>
-          <div style={{ color: '#fcd34d', fontWeight: 700, fontSize: 14, marginBottom: 6 }}>내빈 운영 플랫폼 운영이 종료되었습니다.</div>
-          <div style={{ fontSize: 13, lineHeight: 1.6, color: '#e2e8f0' }}>행사가 마무리되어 명단·도착 기록 등 모든 자료는 삭제되었습니다.<br />플랫폼 문의: 화성특례시 AI스마트전략실 AI전략팀 전명구 주무관 (☎ 3652)</div>
-        </div>
-        <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 18 }}>화성특례시 AI스마트전략실 · 내빈 운영 플랫폼</div>
+// 화면 오류 방지막: 어떤 이유로든 그리기 오류가 나면 흰 화면 대신 복구 단추를 보여줌
+class Boundary extends React.Component {
+  constructor(p) { super(p); this.state = { err: null }; }
+  static getDerivedStateFromError(err) { return { err }; }
+  render() {
+    if (!this.state.err) return this.props.children;
+    const reset = () => { try { localStorage.removeItem('mars-vip-platform-v2'); } catch {} location.reload(); };
+    return (
+      <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 480, margin: '40px auto' }}>
+        <h2 style={{ fontSize: 18, fontWeight: 700 }}>화면에 문제가 생겼습니다</h2>
+        <p style={{ fontSize: 13, color: '#475569', margin: '8px 0 16px' }}>서버 자료는 안전합니다. 아래 단추를 누르면 이 기기의 임시 자료를 지우고 서버에서 다시 받아옵니다. (관리자는 다시 입장)</p>
+        <button onClick={reset} style={{ background: '#1e293b', color: '#fff', padding: '10px 16px', borderRadius: 8, fontWeight: 700, marginRight: 8 }}>자료 다시 받고 새로고침</button>
+        <button onClick={() => location.reload()} style={{ border: '1px solid #cbd5e1', padding: '10px 16px', borderRadius: 8 }}>그냥 새로고침</button>
+        <pre style={{ fontSize: 10, color: '#94a3b8', marginTop: 16, whiteSpace: 'pre-wrap' }}>{String(this.state.err && this.state.err.message)}</pre>
       </div>
-    </div>
-  )
+    );
+  }
 }
-ReactDOM.createRoot(document.getElementById('root')).render(<Closed />)
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <React.StrictMode>
+    <Boundary><App /></Boundary>
+  </React.StrictMode>,
+)
